@@ -10,6 +10,8 @@
 
 # Example code in package build process
 *-Ex.R
+Escanaba_PredictPhenology_4.1.2021.R
+Escanaba_PredictPhenology_6.16.2021.R
 
 # Output files from R CMD build
 /*.tar.gz
