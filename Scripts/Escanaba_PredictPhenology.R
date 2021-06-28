@@ -423,17 +423,48 @@ rec.win.after.GDD0_rand <- randwin(exclude = c(10,-230),
                                      cmissing="method1",
                                      k=0, repeats=100)
 
-rec.win.before.GDD0[[2]]
-pvalue(dataset=rec.win.before.GDD0[[2]]$Dataset, datasetrand=rec.win.before.GDD0CV_rand[[1]],
-       metric='AIC', sample.size=52)
-plothist(dataset=rec.win.before.GDD0[[2]]$Dataset, datasetrand=rec.win.before.GDD0CV_rand[[1]])
-plotdelta(dataset=rec.win.before.GDD0[[2]]$Dataset)
-plotweights(dataset=rec.win.before.GDD0[[2]]$Dataset)
-plotbetas(dataset=rec.win.before.GDD0[[2]]$Dataset)
-plotwin(dataset=rec.win.before.GDD0[[2]]$Dataset)
-plotbest(dataset=rec.win.before.GDD0[[2]]$Dataset,
-         bestmodel=rec.win.before.GDD0[[2]]$BestModel,
-         bestmodeldata=rec.win.before.GDD0[[2]]$BestModelData)
+rec.win.before.GDD0$combos
+rec.win.before.GDD0_rand$combos
+
+###GDD Before spawning
+#Check GDD CV
+pvalue(dataset=rec.win.before.GDD0[[2]]$Dataset, datasetrand=rec.win.before.GDD0_rand[[1]],
+       metric='AIC', sample.size=nrow(r.biol))
+
+#Check GDD sum
+pvalue(dataset=rec.win.before.GDD0[[1]]$Dataset, datasetrand=rec.win.before.GDD0_rand[[2]],
+       metric='AIC', sample.size=nrow(r.biol))
+plothist(dataset=rec.win.before.GDD0[[1]]$Dataset, datasetrand=rec.win.before.GDD0_rand[[2]])
+plotdelta(dataset=rec.win.before.GDD0[[1]]$Dataset)
+plotweights(dataset=rec.win.before.GDD0[[1]]$Dataset)
+plotbetas(dataset=rec.win.before.GDD0[[1]]$Dataset)
+plotwin(dataset=rec.win.before.GDD0[[1]]$Dataset)
+plotbest(dataset=rec.win.before.GDD0[[1]]$Dataset,
+         bestmodel=rec.win.before.GDD0[[1]]$BestModel,
+         bestmodeldata=rec.win.before.GDD0[[1]]$BestModelData)
+
+
+###GDD after spawning
+rec.win.after.GDD0$combos
+rec.win.after.GDD0_rand$combos
+
+#Check GDD CV
+pvalue(dataset=rec.win.after.GDD0[[2]]$Dataset, datasetrand=rec.win.after.GDD0_rand[[1]],
+       metric='AIC', sample.size=nrow(r.biol))
+
+#Check GDD sum
+pvalue(dataset=rec.win.after.GDD0[[1]]$Dataset, datasetrand=rec.win.after.GDD0_rand[[2]],
+       metric='AIC', sample.size=nrow(r.biol))
+
+plothist(dataset=rec.win.after.GDD0[[1]]$Dataset, datasetrand=rec.win.after.GDD0_rand[[2]])
+plotdelta(dataset=rec.win.after.GDD0[[1]]$Dataset)
+plotweights(dataset=rec.win.after.GDD0[[1]]$Dataset)
+plotbetas(dataset=rec.win.after.GDD0[[1]]$Dataset)
+plotwin(dataset=rec.win.after.GDD0[[1]]$Dataset)
+plotbest(dataset=rec.win.after.GDD0[[1]]$Dataset,
+         bestmodel=rec.win.after.GDD0[[1]]$BestModel,
+         bestmodeldata=rec.win.after.GDD0[[1]]$BestModelData)
+
 
 
 
@@ -495,10 +526,15 @@ rec.win.after.precip_rand <- randwin(exclude = c(10,-230),
                                      cinterval="day",
                                      cmissing="method1",
                                      k=0, repeats=100)
-#Before precip sum
-rec.win.before.precip
+#Precipitation before spawning
+rec.win.before.precip$combos
+rec.win.before.precip_rand$combos
+
 pvalue(dataset=rec.win.before.precip[[1]]$Dataset, datasetrand=rec.win.before.precip_rand[[1]],
-       metric='AIC', sample.size=52)
+       metric='AIC', sample.size=55)
+pvalue(dataset=rec.win.before.precip[[2]]$Dataset, datasetrand=rec.win.before.precip_rand[[2]],
+       metric='AIC', sample.size=55)
+
 plothist(dataset=rec.win.before.precip[[1]]$Dataset, datasetrand=rec.win.before.precip_rand[[1]])
 plotdelta(dataset=rec.win.before.precip[[1]]$Dataset)
 plotweights(dataset=rec.win.before.precip[[1]]$Dataset)
@@ -508,23 +544,15 @@ plotbest(dataset=rec.win.before.precip[[1]]$Dataset,
          bestmodel=rec.win.before.precip[[1]]$BestModel,
          bestmodeldata=rec.win.before.precip[[1]]$BestModelData)
 
-#Before precip mean
-rec.win.before.precip
-pvalue(dataset=rec.win.before.precip[[2]]$Dataset, datasetrand=rec.win.before.precip_rand[[2]],
-       metric='AIC', sample.size=52)
-plothist(dataset=rec.win.before.precip[[2]]$Dataset, datasetrand=rec.win.before.precip_rand[[2]])
-plotdelta(dataset=rec.win.before.precip[[2]]$Dataset)
-plotweights(dataset=rec.win.before.precip[[2]]$Dataset)
-plotbetas(dataset=rec.win.before.precip[[2]]$Dataset)
-plotwin(dataset=rec.win.before.precip[[2]]$Dataset)
-plotbest(dataset=rec.win.before.precip[[2]]$Dataset,
-         bestmodel=rec.win.before.precip[[2]]$BestModel,
-         bestmodeldata=rec.win.before.precip[[2]]$BestModelData)
+#Precipitation after spawning
+rec.win.after.precip$combos
+rec.win.after.precip_rand$combos
 
-#after precip sum
-rec.win.after.precip
 pvalue(dataset=rec.win.after.precip[[1]]$Dataset, datasetrand=rec.win.after.precip_rand[[1]],
-       metric='AIC', sample.size=52)
+       metric='AIC', sample.size=55)
+pvalue(dataset=rec.win.after.precip[[2]]$Dataset, datasetrand=rec.win.after.precip_rand[[2]],
+       metric='AIC', sample.size=55)
+
 plothist(dataset=rec.win.after.precip[[1]]$Dataset, datasetrand=rec.win.after.precip_rand[[1]])
 plotdelta(dataset=rec.win.after.precip[[1]]$Dataset)
 plotweights(dataset=rec.win.after.precip[[1]]$Dataset)
@@ -534,19 +562,107 @@ plotbest(dataset=rec.win.after.precip[[1]]$Dataset,
          bestmodel=rec.win.after.precip[[1]]$BestModel,
          bestmodeldata=rec.win.after.precip[[1]]$BestModelData)
 
-#after precip mean
-rec.win.after.precip
-pvalue(dataset=rec.win.after.precip[[2]]$Dataset, datasetrand=rec.win.after.precip_rand[[2]],
-       metric='AIC', sample.size=52)
-plothist(dataset=rec.win.after.precip[[2]]$Dataset, datasetrand=rec.win.after.precip_rand[[2]])
-plotdelta(dataset=rec.win.after.precip[[2]]$Dataset)
-plotweights(dataset=rec.win.after.precip[[2]]$Dataset)
-plotbetas(dataset=rec.win.after.precip[[2]]$Dataset)
-plotwin(dataset=rec.win.after.precip[[2]]$Dataset)
-plotbest(dataset=rec.win.after.precip[[2]]$Dataset,
-         bestmodel=rec.win.after.precip[[2]]$BestModel,
-         bestmodeldata=rec.win.after.precip[[2]]$BestModelData)
+#Split dataset into thirds?
+#Try on recruitment using relative window before and after spawning
+#Nothing
+#Do last third of recruitment years
+nrow(r.biol)/3
 
+plot(Age0PE ~ Year, data=r.biol)
+lines(Age0PE ~ Year, data=r.biol[1:18,], col=1)
+lines(Age0PE ~ Year, data=r.biol[19:37,], col=2)
+lines(Age0PE ~ Year, data=r.biol[38:55,], col=3)
+lines(x=c(r.biol$Year[c(1,18)]), y=rep(mean(r.biol$Age0PE[1:18]),2), col=1, lty=2)
+lines(x=c(r.biol$Year[c(19,37)]), y=rep(mean(r.biol$Age0PE[19:37]),2), col=2, lty=2)
+lines(x=c(r.biol$Year[c(38,55)]), y=rep(mean(r.biol$Age0PE[38:55]),2), col=3, lty=2)
+
+r.biol.late <- r.biol[38:55, ]
+r.biol.late
+r.late.baseline <- lm(Age0PE ~ 1, data=r.biol.late)
+r.late.baseline
+
+#Thermal habitat before spawning
+rec.late.before <- slidingwin(exclude = c(10,1),
+                                  xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+                                  cdate=xvar$Date,
+                                  bdate=r.biol.late$FemDate,
+                                  baseline=r.late.baseline,
+                                  type="relative",
+                                  stat=c("sum","CV"),
+                                  func=c("lin"),
+                                  range=c(300, 0),
+                                  cinterval="day",
+                                  cmissing="method1",
+                                  k=5)
+
+rec.late.after <- slidingwin(exclude = c(10,-230),
+                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+                              cdate=xvar$Date,
+                              bdate=r.biol.late$FemDate,
+                              baseline=r.late.baseline,
+                              type="relative",
+                              stat=c("sum","CV"),
+                              func=c("lin"),
+                              range=c(0, -230),
+                              cinterval="day",
+                              cmissing="method1",
+                              k=5)
+
+rec.late.before$combos
+rec.late.after$combos
+
+plotwin(dataset=rec.late.before[[2]]$Dataset)
+plotwin(dataset=rec.late.after[[3]]$Dataset)
+
+###Do middle third of recruitment years
+#Do last third of recruitment years
+nrow(r.biol)/3
+
+plot(Age0PE ~ Year, data=r.biol)
+lines(Age0PE ~ Year, data=r.biol[1:18,], col=1)
+lines(Age0PE ~ Year, data=r.biol[19:37,], col=2)
+lines(Age0PE ~ Year, data=r.biol[38:55,], col=3)
+lines(x=c(r.biol$Year[c(1,18)]), y=rep(mean(r.biol$Age0PE[1:18]),2), col=1, lty=2)
+lines(x=c(r.biol$Year[c(19,37)]), y=rep(mean(r.biol$Age0PE[19:37]),2), col=2, lty=2)
+lines(x=c(r.biol$Year[c(38,55)]), y=rep(mean(r.biol$Age0PE[38:55]),2), col=3, lty=2)
+
+r.biol.mid <- r.biol[19:37, ]
+r.biol.mid
+r.mid.baseline <- lm(Age0PE ~ 1, data=r.biol.mid)
+r.mid.baseline
+
+#Thermal habitat before spawning
+rec.mid.before <- slidingwin(exclude = c(10,1),
+                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+                              cdate=xvar$Date,
+                              bdate=r.biol.mid$FemDate,
+                              baseline=r.mid.baseline,
+                              type="relative",
+                              stat=c("sum","CV"),
+                              func=c("lin"),
+                              range=c(300, 0),
+                              cinterval="day",
+                              cmissing="method1",
+                              k=5)
+
+rec.mid.after <- slidingwin(exclude = c(10,-230),
+                             xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+                             cdate=xvar$Date,
+                             bdate=r.biol.mid$FemDate,
+                             baseline=r.mid.baseline,
+                             type="relative",
+                             stat=c("sum","CV"),
+                             func=c("lin"),
+                             range=c(0, -230),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=5)
+
+rec.mid.before$combos
+rec.mid.after$combos
+
+plotwin(dataset=rec.mid.before[[2]]$Dataset)
+plotwin(dataset=rec.mid.after[[3]]$Dataset)
 
 ##Quick look at lengths and relationship with phenology
 yoylen <- read_csv("C:/Users/feinezs/Documents/WAE Spawning Phenology/YOYWAEData_Escanaba/Escanaba_FallShockingLengths_1990-2019.csv")
