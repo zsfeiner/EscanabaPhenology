@@ -2,6 +2,13 @@
 .Rhistory
 .Rapp.history
 
+# Data files (for now, can add back on publication)
+*.csv
+*.txt
+
+# Manuscript files
+Manuscript/
+
 # Session Data files
 /*.RData
 
