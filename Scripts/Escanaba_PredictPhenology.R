@@ -153,6 +153,16 @@ ice
 #Get recruitment
 YOYPE <- read_csv("EscanabaStockRecruitPE.csv")
 
+#Get recruitment sampling dates
+
+YOYdates <- read_csv("WAE_YOY_CompositeThrough2019.csv")
+YOYdates <- YOYdates %>%
+  filter(MWBC == 2339900) %>% mutate(Date = as.Date(DATE, format="%m/%d/%Y")) %>%
+  group_by(YEAR) %>%
+  summarize(Date=mean(Date))
+YOYdates
+
+
 dat <- maxDOY %>%
   ungroup(.) %>%
   mutate(FemDOY = DOY, rFemDOY = round(FemDOY)) %>%
@@ -561,108 +571,222 @@ plotwin(dataset=rec.win.after.precip[[1]]$Dataset)
 plotbest(dataset=rec.win.after.precip[[1]]$Dataset,
          bestmodel=rec.win.after.precip[[1]]$BestModel,
          bestmodeldata=rec.win.after.precip[[1]]$BestModelData)
+# 
+# #Split dataset into thirds?
+# #Try on recruitment using relative window before and after spawning
+# #Nothing
+# #Do last third of recruitment years
+# nrow(r.biol)/3
+# 
+# plot(Age0PE ~ Year, data=r.biol)
+# lines(Age0PE ~ Year, data=r.biol[1:18,], col=1)
+# lines(Age0PE ~ Year, data=r.biol[19:37,], col=2)
+# lines(Age0PE ~ Year, data=r.biol[38:55,], col=3)
+# lines(x=c(r.biol$Year[c(1,18)]), y=rep(mean(r.biol$Age0PE[1:18]),2), col=1, lty=2)
+# lines(x=c(r.biol$Year[c(19,37)]), y=rep(mean(r.biol$Age0PE[19:37]),2), col=2, lty=2)
+# lines(x=c(r.biol$Year[c(38,55)]), y=rep(mean(r.biol$Age0PE[38:55]),2), col=3, lty=2)
+# 
+# r.biol.late <- r.biol[38:55, ]
+# r.biol.late
+# r.late.baseline <- lm(Age0PE ~ 1, data=r.biol.late)
+# r.late.baseline
+# 
+# #Thermal habitat before spawning
+# rec.late.before <- slidingwin(exclude = c(10,1),
+#                                   xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                                   cdate=xvar$Date,
+#                                   bdate=r.biol.late$FemDate,
+#                                   baseline=r.late.baseline,
+#                                   type="relative",
+#                                   stat=c("sum","CV"),
+#                                   func=c("lin"),
+#                                   range=c(300, 0),
+#                                   cinterval="day",
+#                                   cmissing="method1",
+#                                   k=5)
+# 
+# rec.late.after <- slidingwin(exclude = c(10,-230),
+#                               xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                               cdate=xvar$Date,
+#                               bdate=r.biol.late$FemDate,
+#                               baseline=r.late.baseline,
+#                               type="relative",
+#                               stat=c("sum","CV"),
+#                               func=c("lin"),
+#                               range=c(0, -230),
+#                               cinterval="day",
+#                               cmissing="method1",
+#                               k=5)
+# 
+# rec.late.before$combos
+# rec.late.after$combos
+# 
+# plotwin(dataset=rec.late.before[[2]]$Dataset)
+# plotwin(dataset=rec.late.after[[3]]$Dataset)
+# 
+# ###Do middle third of recruitment years
+# #Do last third of recruitment years
+# nrow(r.biol)/3
+# 
+# plot(Age0PE ~ Year, data=r.biol)
+# lines(Age0PE ~ Year, data=r.biol[1:18,], col=1)
+# lines(Age0PE ~ Year, data=r.biol[19:37,], col=2)
+# lines(Age0PE ~ Year, data=r.biol[38:55,], col=3)
+# lines(x=c(r.biol$Year[c(1,18)]), y=rep(mean(r.biol$Age0PE[1:18]),2), col=1, lty=2)
+# lines(x=c(r.biol$Year[c(19,37)]), y=rep(mean(r.biol$Age0PE[19:37]),2), col=2, lty=2)
+# lines(x=c(r.biol$Year[c(38,55)]), y=rep(mean(r.biol$Age0PE[38:55]),2), col=3, lty=2)
+# 
+# r.biol.mid <- r.biol[19:37, ]
+# r.biol.mid
+# r.mid.baseline <- lm(Age0PE ~ 1, data=r.biol.mid)
+# r.mid.baseline
+# 
+# #Thermal habitat before spawning
+# rec.mid.before <- slidingwin(exclude = c(10,1),
+#                               xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                               cdate=xvar$Date,
+#                               bdate=r.biol.mid$FemDate,
+#                               baseline=r.mid.baseline,
+#                               type="relative",
+#                               stat=c("sum","CV"),
+#                               func=c("lin"),
+#                               range=c(300, 0),
+#                               cinterval="day",
+#                               cmissing="method1",
+#                               k=5)
+# 
+# rec.mid.after <- slidingwin(exclude = c(10,-230),
+#                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                              cdate=xvar$Date,
+#                              bdate=r.biol.mid$FemDate,
+#                              baseline=r.mid.baseline,
+#                              type="relative",
+#                              stat=c("sum","CV"),
+#                              func=c("lin"),
+#                              range=c(0, -230),
+#                              cinterval="day",
+#                              cmissing="method1",
+#                              k=5)
+# 
+# rec.mid.before$combos
+# rec.mid.after$combos
+# 
+# plotwin(dataset=rec.mid.before[[2]]$Dataset)
+# plotwin(dataset=rec.mid.after[[3]]$Dataset)
+# 
+# #Quickly look at absolute day, May 1
+# #Thermal habitat before spawning
+# ##Nothing
+# rec.abs.before <- slidingwin(exclude = c(10,1),
+#                               xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                               cdate=xvar$Date,
+#                               bdate=r.biol$FemDate,
+#                               baseline=r.baseline,
+#                               type="absolute",
+#                               refday=c(1,5),
+#                               stat=c("sum","CV"),
+#                               func=c("lin"),
+#                               range=c(300, 0),
+#                               cinterval="day",
+#                               cmissing="method1",
+#                               k=5)
+# 
+# rec.abs.after <- slidingwin(exclude = c(10,-230),
+#                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                              cdate=xvar$Date,
+#                              bdate=r.biol$FemDate,
+#                              baseline=r.baseline,
+#                              type="absolute",
+#                              refday=c(1,5),
+#                              stat=c("sum","CV"),
+#                              func=c("lin"),
+#                              range=c(0, -230),
+#                              cinterval="day",
+#                              cmissing="method1",
+#                              k=5)
+# 
+# rec.abs.before$combos
+# rec.abs.after$combos
 
-#Split dataset into thirds?
-#Try on recruitment using relative window before and after spawning
-#Nothing
-#Do last third of recruitment years
-nrow(r.biol)/3
+r.biol <- left_join(r.biol, YOYdates, by=c("Year"="YEAR"))
+r.biol
+r.biol2 <- filter(r.biol, !is.na(Date))
+r.baseline2 <- lm(Age0PE ~ 1, r.biol2)
 
-plot(Age0PE ~ Year, data=r.biol)
-lines(Age0PE ~ Year, data=r.biol[1:18,], col=1)
-lines(Age0PE ~ Year, data=r.biol[19:37,], col=2)
-lines(Age0PE ~ Year, data=r.biol[38:55,], col=3)
-lines(x=c(r.biol$Year[c(1,18)]), y=rep(mean(r.biol$Age0PE[1:18]),2), col=1, lty=2)
-lines(x=c(r.biol$Year[c(19,37)]), y=rep(mean(r.biol$Age0PE[19:37]),2), col=2, lty=2)
-lines(x=c(r.biol$Year[c(38,55)]), y=rep(mean(r.biol$Age0PE[38:55]),2), col=3, lty=2)
+rec.abs.beforefall2 <- slidingwin(exclude = c(10,1),
+                             xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+                             cdate=xvar$Date,
+                             bdate=r.biol2$Date,
+                             baseline=r.baseline2,
+                             type="absolute",
+                             refday=c(15,10),
+                             stat=c("mean"),
+                             func=c("lin"),
+                             range=c(230, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=0)
+rec.abs.beforefall$combos
 
-r.biol.late <- r.biol[38:55, ]
-r.biol.late
-r.late.baseline <- lm(Age0PE ~ 1, data=r.biol.late)
-r.late.baseline
+plotdelta(dataset=rec.abs.beforefall[[3]]$Dataset)
+plotweights(dataset=rec.abs.beforefall[[3]]$Dataset)
+plotbetas(dataset=rec.abs.beforefall[[3]]$Dataset)
+plotwin(dataset=rec.abs.beforefall[[3]]$Dataset)
+plotbest(dataset=rec.abs.beforefall[[3]]$Dataset,
+         bestmodel=rec.abs.beforefall[[3]]$BestModel,
+         bestmodeldata=rec.abs.beforefall[[3]]$BestModelData)
+
+####Log scale recruitment
+#####
+lnr.baseline <- lm(log(Age0PE) ~ 1, data=r.biol)
+lnr.baseline
+
+CV <- function(x) {sd(x)/mean(x)}
 
 #Thermal habitat before spawning
-rec.late.before <- slidingwin(exclude = c(10,1),
-                                  xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+rec.win.before.GDD0.lnr <- slidingwin(exclude = c(10,1),
+                                  xvar=list(GDD0=xvar$GDD0),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
                                   cdate=xvar$Date,
-                                  bdate=r.biol.late$FemDate,
-                                  baseline=r.late.baseline,
+                                  bdate=r.biol$FemDate,
+                                  baseline=lnr.baseline,
                                   type="relative",
-                                  stat=c("sum","CV"),
+                                  refday=c(15,5),
+                                  stat=c("sum","CV","mean"),#,"slope","mean"),
                                   func=c("lin"),
                                   range=c(300, 0),
                                   cinterval="day",
                                   cmissing="method1",
-                                  k=5)
+                                  k=0)
+rec.win.before.GDD0$combos
+rec.win.before.GDD0.lnr$combos
 
-rec.late.after <- slidingwin(exclude = c(10,-230),
-                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-                              cdate=xvar$Date,
-                              bdate=r.biol.late$FemDate,
-                              baseline=r.late.baseline,
-                              type="relative",
-                              stat=c("sum","CV"),
-                              func=c("lin"),
-                              range=c(0, -230),
-                              cinterval="day",
-                              cmissing="method1",
-                              k=5)
 
-rec.late.before$combos
-rec.late.after$combos
+#Thermal habitat after spawning
+rec.win.after.GDD0.lnr <- slidingwin(exclude = c(10,-230),
+                                 xvar=list(GDD0=xvar$GDD0),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+                                 cdate=xvar$Date,
+                                 bdate=r.biol$FemDate,
+                                 baseline=lnr.baseline,
+                                 type="relative",
+                                 refday=c(15,5),
+                                 stat=c("sum", "CV","mean"),#,"slope","mean"),
+                                 func=c("lin"),
+                                 range=c(0, -230),
+                                 cinterval="day",
+                                 cmissing="method1",
+                                 k=0)
+rec.win.after.GDD0.lnr$combos
+rec.win.after.GDD0$combos
 
-plotwin(dataset=rec.late.before[[2]]$Dataset)
-plotwin(dataset=rec.late.after[[3]]$Dataset)
 
-###Do middle third of recruitment years
-#Do last third of recruitment years
-nrow(r.biol)/3
+plotdelta(dataset=rec.win.after.GDD0.lnr[[2]]$Dataset)
+plotweights(dataset=rec.win.after.GDD0.lnr[[2]]$Dataset)
+plotbetas(dataset=rec.win.after.GDD0.lnr[[2]]$Dataset)
+plotwin(dataset=rec.win.after.GDD0.lnr[[2]]$Dataset)
+plotbest(dataset=rec.win.after.GDD0[[2]]$Dataset,
+         bestmodel=rec.win.after.GDD0[[2]]$BestModel,
+         bestmodeldata=rec.win.after.GDD0[[2]]$BestModelData)
 
-plot(Age0PE ~ Year, data=r.biol)
-lines(Age0PE ~ Year, data=r.biol[1:18,], col=1)
-lines(Age0PE ~ Year, data=r.biol[19:37,], col=2)
-lines(Age0PE ~ Year, data=r.biol[38:55,], col=3)
-lines(x=c(r.biol$Year[c(1,18)]), y=rep(mean(r.biol$Age0PE[1:18]),2), col=1, lty=2)
-lines(x=c(r.biol$Year[c(19,37)]), y=rep(mean(r.biol$Age0PE[19:37]),2), col=2, lty=2)
-lines(x=c(r.biol$Year[c(38,55)]), y=rep(mean(r.biol$Age0PE[38:55]),2), col=3, lty=2)
-
-r.biol.mid <- r.biol[19:37, ]
-r.biol.mid
-r.mid.baseline <- lm(Age0PE ~ 1, data=r.biol.mid)
-r.mid.baseline
-
-#Thermal habitat before spawning
-rec.mid.before <- slidingwin(exclude = c(10,1),
-                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-                              cdate=xvar$Date,
-                              bdate=r.biol.mid$FemDate,
-                              baseline=r.mid.baseline,
-                              type="relative",
-                              stat=c("sum","CV"),
-                              func=c("lin"),
-                              range=c(300, 0),
-                              cinterval="day",
-                              cmissing="method1",
-                              k=5)
-
-rec.mid.after <- slidingwin(exclude = c(10,-230),
-                             xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-                             cdate=xvar$Date,
-                             bdate=r.biol.mid$FemDate,
-                             baseline=r.mid.baseline,
-                             type="relative",
-                             stat=c("sum","CV"),
-                             func=c("lin"),
-                             range=c(0, -230),
-                             cinterval="day",
-                             cmissing="method1",
-                             k=5)
-
-rec.mid.before$combos
-rec.mid.after$combos
-
-plotwin(dataset=rec.mid.before[[2]]$Dataset)
-plotwin(dataset=rec.mid.after[[3]]$Dataset)
 
 ##Quick look at lengths and relationship with phenology
 yoylen <- read_csv("C:/Users/feinezs/Documents/WAE Spawning Phenology/YOYWAEData_Escanaba/Escanaba_FallShockingLengths_1990-2019.csv")
@@ -697,3 +821,56 @@ plot(Length.mm ~ yoyDOY, data=yoylen)
 
 yoylen
 yoylen$yoyDOY
+
+meanyoylen <- yoylen %>%
+  group_by(Date) %>%
+  summarize(Length = mean(Length.mm, na.rm=T), FemDOY = mean(FemDOY), FemDate=mean(FemDate), growDays=mean(growDays), growthrate=mean(growthrate), GDD=mean(GDD))
+meanyoylen
+
+
+plot(Length ~ growDays, data=meanyoylen)
+plot(Length ~ IceOffDOY, data=meanyoylen)
+plot(Length ~ year(Date), data=meanyoylen)
+plot(growthrate ~ FemDOY, data=meanyoylen)
+plot(growthrate ~ IceOffDOY, data=meanyoylen)
+plot(growthrate ~ GDD, data=meanyoylen)
+plot(Length ~ GDD, data=meanyoylen)
+plot(growthrate ~ Year, data=meanyoylen)
+
+meanyoylen <- meanyoylen %>%
+  mutate(Year=year(Date)) %>%
+  left_join(select(dat, AdultPE, Age0PE, Year))
+meanyoylen
+
+####Climwin for YOY length post spawn relative window
+
+#Try on recruitment using relative window before and after spawning
+xvar <- inner_join(select(temps, GDD0, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
+xvar
+
+meanyoylen <- filter(meanyoylen, year(Date) < 2020)
+len.baseline <- lm(Length ~ 1, data=meanyoylen)
+
+#Thermal habitat before spawning
+yoylen.win <- slidingwin(exclude = c(10,1),
+                         xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+                         cdate=xvar$Date,
+                         bdate=meanyoylen$Date,
+                         baseline=len.baseline,
+                         type="relative",
+                         #refday=c(15,5),
+                         stat=c("sum", "CV", "mean"),
+                         func=c("lin"),
+                         range=c(180, 0),
+                         cinterval="day",
+                         cmissing="method1",
+                         k=5)
+yoylen.win$combos
+
+plotdelta(dataset=yoylen.win[[1]]$Dataset)
+plotweights(dataset=yoylen.win[[1]]$Dataset)
+plotbetas(dataset=yoylen.win[[1]]$Dataset)
+plotwin(dataset=yoylen.win[[1]]$Dataset)
+plotbest(dataset=yoylen.win[[1]]$Dataset,
+         bestmodel=yoylen.win[[1]]$BestModel,
+         bestmodeldata=yoylen.win[[1]]$BestModelData)
