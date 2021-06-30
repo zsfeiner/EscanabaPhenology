@@ -59,8 +59,17 @@ summary(modGI.7.gaus)
 plot(sel.wae$scFem ~ predict(modGI.7.gaus))
 
 pred.dat.all <- data.frame(scDOY = rep(seq(-10,10,0.1),61), fYear=as.factor(rep(unique(wae$Year),each=201)))
-pred.dat.all$pred <- predict(modGI.7.gaus, newdata=pred.dat.all)
-pred.dat.all
+gamm.preds <- predict(modGI.7.gaus, newdata=pred.dat.all, se=T)
+pred.dat.all <- pred.dat.all %>%
+  mutate(pred = gamm.preds$fit,
+         se = gamm.preds$se.fit,
+         LCI = gamm.preds$fit - gamm.preds$se.fit*1.96,
+         UCI = gamm.preds$fit + gamm.preds$se.fit*1.96)
+
+ggplot(pred.dat.all, aes(x=scDOY, y=pred, group=fYear)) + 
+  geom_ribbon(aes(x = scDOY, ymin=LCI, ymax=UCI)) +
+  geom_line() + 
+  facet_wrap(~fYear, scales="free")
 
 unscale <- wae %>%
   group_by(fYear) %>%
@@ -69,19 +78,14 @@ unscale
 
 #Unscale DOY and total female catches
 all.pred <- left_join(pred.dat.all, unscale) %>%
-  mutate(DOY = scDOY + meanDOY, PredFem = pred * sdFem + meanFem, PredFem=ifelse(PredFem<0,0,PredFem))
+  mutate(DOY = scDOY + meanDOY, PredFem = pred * sdFem + meanFem, PredFem=ifelse(PredFem<0,0,PredFem),
+         unscLCI = LCI * sdFem + meanFem, unscUCI=UCI*sdFem + meanFem, unscLCI=ifelse(unscLCI<0,0,unscLCI))
 all.pred
 
-ggplot(data=sel.wae, aes(x=DOY, y=scFem, group=fYear)) + 
-  geom_point() + geom_line() +
-  geom_vline(data=maxDOY, aes(xintercept=maxDOY), col="red", lwd=1) + 
-  geom_line(data=unsc.pred, aes(x=DOY, y=pred, group=fYear), inherit.aes=F, col="blue", lwd=1) +
-  facet_wrap(~fYear, scales="free") + theme_bw()
-
-
 ggplot(data=sel.wae, aes(x=DOY, y=Females, group=fYear)) + 
-  geom_point() + geom_line() +
-  #geom_vline(data=maxDOY, aes(xintercept=maxDOY), col="red", lwd=1) + 
+  geom_ribbon(data=all.pred, aes(x = DOY, ymin=unscLCI, ymax=unscUCI), inherit.aes=F, fill=rgb(0,0,1,0.5)) +
+  geom_point() + geom_line() + 
+  geom_vline(data=maxDOY, aes(xintercept=DOY), col="red", lwd=1) + 
   geom_line(data=all.pred, aes(x=DOY, y=PredFem, group=fYear), inherit.aes=F, col="blue", lwd=1) +
   facet_wrap(~fYear, scales="free") + theme_bw()
 
@@ -92,7 +96,7 @@ maxDOY <- all.pred %>%
   select(Year, DOY, PredFem, everything())
 maxDOY
 
-plot(DOY ~ Year, maxDOY)
+plot(DOY ~ Year, maxDOY, type="b")
 
 
 #Bring in environmental data
@@ -179,14 +183,20 @@ plot(PredWaterTemp ~ Year, dat); abline(reg=lm(PredWaterTemp ~ Year, dat), col="
 plot(DayLen ~ Year, dat); abline(reg=lm(DayLen ~ Year, dat), col="blue")
 
 #Correlation to ice-on, ice-off, ice-duration
+detrendFemDOY <- resid(lm(FemDOY ~ Year, data=dat[!is.na(dat$IceOnDOY),]))
+detrendIceOff <- resid(lm(IceOffDOY ~ Year, data=dat))
+detrendIceOn <- resid(lm(IceOnDOY ~ Year, data=dat))
+
 plot(FemDOY ~ IceOnDOY, dat); abline(reg=lm(FemDOY ~ IceOnDOY, dat), col="blue")
+plot(detrendFemDOY ~ detrendIceOn); abline(reg=lm(detrendFemDOY ~ detrendIceOn), col="blue")
+
 plot(FemDOY ~ IceOffDOY, dat); abline(reg=lm(FemDOY ~ IceOffDOY, dat), col="blue")
-plot(FemDOY ~ IceDuration, dat); abline(reg=lm(FemDOY ~ IceDuration, dat), col="blue")
+plot(detrendFemDOY ~ detrendIceOff); abline(reg=lm(detrendFemDOY ~ detrendIceOff), col="blue")
 
 #Recruitment vs spawn time, winter, and temp at spawn
 plot(Age0PE ~ FemDOY, dat); abline(reg=lm(Age0PE ~ FemDOY, dat), col="blue") 
 plot(Age0PE ~ DayLen, dat); abline(reg=lm(Age0PE ~ DayLen, dat), col="blue") 
-plot(Age0PE ~ PredWaterTemp, dat); abline(reg=lm(Age0PE ~ PredWaterTemp, dat), col="blue") 
+plot(log(Age0PE) ~ PredWaterTemp, dat); abline(reg=lm(Age0PE ~ PredWaterTemp, dat), col="blue") 
 plot(Age0PE ~ IceOnDOY, dat); abline(reg=lm(Age0PE ~ IceOnDOY, dat), col="blue") 
 plot(Age0PE ~ IceOffDOY, dat); abline(reg=lm(Age0PE ~ IceOffDOY, dat), col="blue") 
 plot(Age0PE ~ IceDuration, dat); abline(reg=lm(Age0PE ~ IceDuration, dat), col="blue") 
@@ -196,13 +206,14 @@ plot(Age0PE ~ IceDuration, dat); abline(reg=lm(Age0PE ~ IceDuration, dat), col="
 
 #Create GDD0
 temps$GDD0 <- ifelse(temps$PredWaterTemp > 0, temps$PredWaterTemp, 0)
+temps$GDD5 <- ifelse(temps$PredWaterTemp >= 5, temps$PredWaterTemp, 0)
 
 #Find latest spawning date
 max(dat$rFemDOY)
 as.Date(max(dat$rFemDOY)-1, origin="2013-01-01")
 as.Date(median(dat$rFemDOY)-1, origin="2013-01-01")
 
-xvar <- inner_join(select(temps, GDD0, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
+xvar <- inner_join(select(temps, GDD0, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
 
 xvar
 
@@ -214,88 +225,100 @@ biol <- filter(dat, Year > 1955)
 baseline <- lm(rFemDOY ~ 1, data=biol)
 baseline
 
-fem.win.GDD0 <- slidingwin(exclude = c(10,30),
-                           xvar=list(GDD0=xvar$GDD0),# Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+#Use mean, CV of water temperature, sum of GDD5, and sum of precip
+fem.win.temp <- slidingwin(exclude = c(10,30),
+                           xvar=list(Temp=xvar$PredWaterTemp),
                            cdate=xvar$Date,
                            bdate=biol$FemDate,
                            baseline=baseline,
                            type="absolute",
                            refday=c(15,5),
-                           stat=c("sum","CV","mean"),
+                           stat=c("mean","CV"),
                            func=c("lin"),
                            range=c(365, 0),
                            cinterval="day",
                            cmissing="method1",
                            k=5)
-fem.win.GDD0$combos
+
+fem.win.GDD5 <- slidingwin(exclude = c(10,30),
+                           xvar=list(GDD5=xvar$GDD5),# Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+                           cdate=xvar$Date,
+                           bdate=biol$FemDate,
+                           baseline=baseline,
+                           type="absolute",
+                           refday=c(15,5),
+                           stat=c("sum"),
+                           func=c("lin"),
+                           range=c(365, 0),
+                           cinterval="day",
+                           cmissing="method1",
+                           k=2)
 
 fem.win.precip <- slidingwin(exclude = c(10,30),
-                             xvar=list(Precip=xvar$meanPrecip),# DayLen=xvar$Photoperiod),
+                             xvar=list(Precip=xvar$meanPrecip),
                              cdate=xvar$Date,
                              bdate=biol$FemDate,
                              baseline=baseline,
                              type="absolute",
                              refday=c(15,5),
-                             stat=c("sum","mean"),
+                             stat=c("sum"),
                              func=c("lin"),
                              range=c(365, 0),
                              cinterval="day",
                              cmissing="method1",
                              k=5)
-fem.win.precip$combos
-
-fem.win.daylen <- slidingwin(exclude = c(10,30),
-                             xvar=list(DayLen=xvar$Photoperiod),
-                             cdate=xvar$Date,
-                             bdate=biol$FemDate,
-                             baseline=baseline,
-                             type="absolute",
-                             refday=c(15,5),
-                             stat=c("sum","mean"),
-                             func=c("lin"),
-                             range=c(365, 0),
-                             cinterval="day",
-                             cmissing="method1",
-                             k=5)
-fem.win.daylen$combos
-
-
-
 
 #Randomize sum of GDD0
-fem.win.randGDD0 <- randwin(exclude = c(10,30),
-                            xvar=list(GDD0=xvar$GDD0),
+fem.win.rand.temp <- randwin(exclude = c(10,30),
+                            xvar=list(Temp=xvar$PredWaterTemp),
                             cdate=xvar$Date,
                             bdate=biol$FemDate,
                             baseline=baseline,
                             type="absolute",
                             refday=c(15,5),
-                            stat=c("sum"),
+                            stat=c("mean", "CV"),
                             func=c("lin"),
                             range=c(365, 0),
                             cinterval="day",
                             cmissing="method1",
-                            k=0, repeats=100)
+                            k=5, repeats=100)
+
+fem.win.rand.GDD5 <- randwin(exclude = c(10,30),
+                             xvar=list(Temp=xvar$GDD5),
+                             cdate=xvar$Date,
+                             bdate=biol$FemDate,
+                             baseline=baseline,
+                             type="absolute",
+                             refday=c(15,5),
+                             stat=c("sum"),
+                             func=c("lin"),
+                             range=c(365, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=2, repeats=100)
 
 #Randomize mean precip
-fem.win.randPrecip <- randwin(exclude = c(10,30),
+fem.win.rand.precip <- randwin(exclude = c(10,30),
                               xvar=list(Precip=xvar$meanPrecip),
                               cdate=xvar$Date,
                               bdate=biol$FemDate,
                               baseline=baseline,
                               type="absolute",
                               refday=c(15,5),
-                              stat=c("mean"),
+                              stat=c("sum"),
                               func=c("lin"),
                               range=c(365, 0),
                               cinterval="day",
                               cmissing="method1",
-                              k=0, repeats=100)
+                              k=5, repeats=100)
 
 
-fem.win.precip$combos
 
-fem.win.precip[[2]]
+fem.win.temp
+fem.win.GDD5$combos
+fem.win.precip
+
+
 pvalue(dataset=fem.win.precip[[2]]$Dataset, datasetrand=fem.win.randPrecip[[1]],
        metric='AIC', sample.size=57)
 plothist(dataset=fem.win.precip[[2]]$Dataset, datasetrand=fem.win.randPrecip[[1]])
@@ -325,7 +348,7 @@ plotbest(dataset=fem.win.GDD0[[1]]$Dataset,
 
 
 #Try on recruitment using relative window before and after spawning
-xvar <- inner_join(select(temps, GDD0, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
+xvar <- inner_join(select(temps, GDD0, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
 xvar
 
 dat$FemDate <- as.Date(dat$rFemDOY-1, origin=paste0(dat$Year,"-01-01"))
@@ -333,42 +356,48 @@ dat$FemDate
 
 r.biol <- filter(dat, Year > 1955, !is.na(Age0PE))
 r.biol
-r.baseline <- lm(Age0PE ~ 1, data=r.biol)
+r.baseline <- lm(log(Age0PE) ~ 1, data=r.biol)
 r.baseline
 
 CV <- function(x) {sd(x)/mean(x)}
 
 #Thermal habitat before spawning
-rec.win.before.GDD0 <- slidingwin(exclude = c(10,1),
-                                  xvar=list(GDD0=xvar$GDD0),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+rec.win.before.GDD5 <- slidingwin(exclude = c(10,1),
+                                  xvar=list(GDD5=xvar$GDD5),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
                                   cdate=xvar$Date,
                                   bdate=r.biol$FemDate,
                                   baseline=r.baseline,
                                   type="relative",
                                   refday=c(15,5),
-                                  stat=c("sum","CV","mean"),#,"slope","mean"),
+                                  stat=c("sum","sd"),#,"slope","mean"),
                                   func=c("lin"),
                                   range=c(300, 0),
                                   cinterval="day",
                                   cmissing="method1",
-                                  k=5)
+                                  k=0)
 rec.win.before.GDD0$combos
+rec.win.before.GDD5$combos
+
 
 #Thermal habitat after spawning
-rec.win.after.GDD0 <- slidingwin(exclude = c(10,-230),
+rec.win.after.GDD0.log <- slidingwin(exclude = c(10,-230),
                                  xvar=list(GDD0=xvar$GDD0),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
                                  cdate=xvar$Date,
                                  bdate=r.biol$FemDate,
                                  baseline=r.baseline,
                                  type="relative",
                                  refday=c(15,5),
-                                 stat=c("sum", "CV","mean"),#,"slope","mean"),
+                                 stat=c("sum", "sd"),#,"slope","mean"),
                                  func=c("lin"),
                                  range=c(0, -230),
                                  cinterval="day",
                                  cmissing="method1",
-                                 k=5)
+                                 k=0)
 rec.win.after.GDD0$combos
+rec.win.after.GDD0.log$combos
+
+rec.win.after.GDD5$combos
+
 
 #Precipitation after spawning
 rec.win.after.precip <- slidingwin(exclude = c(10,-230),
