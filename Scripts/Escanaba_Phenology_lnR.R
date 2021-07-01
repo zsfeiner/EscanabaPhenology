@@ -241,10 +241,11 @@ fem.win.temp <- slidingwin(exclude = c(10,30),
                            k=5)
 
 fem.win.GDD5 <- slidingwin(exclude = c(10,30),
-                           xvar=list(GDD5=xvar$GDD5),# Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+                           xvar=list(Temp=xvar$PredWaterTemp),# Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
                            cdate=xvar$Date,
                            bdate=biol$FemDate,
                            baseline=baseline,
+                           upper=5,
                            type="absolute",
                            refday=c(15,5),
                            stat=c("sum"),
@@ -252,7 +253,7 @@ fem.win.GDD5 <- slidingwin(exclude = c(10,30),
                            range=c(365, 0),
                            cinterval="day",
                            cmissing="method1",
-                           k=2)
+                           k=5)
 
 fem.win.precip <- slidingwin(exclude = c(10,30),
                              xvar=list(Precip=xvar$meanPrecip),
@@ -268,6 +269,7 @@ fem.win.precip <- slidingwin(exclude = c(10,30),
                              cmissing="method1",
                              k=5)
 
+
 #Randomize sum of GDD0
 fem.win.rand.temp <- randwin(exclude = c(10,30),
                             xvar=list(Temp=xvar$PredWaterTemp),
@@ -281,13 +283,14 @@ fem.win.rand.temp <- randwin(exclude = c(10,30),
                             range=c(365, 0),
                             cinterval="day",
                             cmissing="method1",
-                            k=5, repeats=100)
+                            k=5, repeats=10)
 
 fem.win.rand.GDD5 <- randwin(exclude = c(10,30),
-                             xvar=list(Temp=xvar$GDD5),
+                             xvar=list(Temp=xvar$PredWaterTemp),
                              cdate=xvar$Date,
                              bdate=biol$FemDate,
                              baseline=baseline,
+                             upper=5,
                              type="absolute",
                              refday=c(15,5),
                              stat=c("sum"),
@@ -295,7 +298,7 @@ fem.win.rand.GDD5 <- randwin(exclude = c(10,30),
                              range=c(365, 0),
                              cinterval="day",
                              cmissing="method1",
-                             k=2, repeats=100)
+                             k=5, repeats=10)
 
 #Randomize mean precip
 fem.win.rand.precip <- randwin(exclude = c(10,30),
@@ -310,43 +313,57 @@ fem.win.rand.precip <- randwin(exclude = c(10,30),
                               range=c(365, 0),
                               cinterval="day",
                               cmissing="method1",
-                              k=5, repeats=100)
+                              k=5, repeats=10)
 
 
+##Assess temp
+fem.win.temp$combos
+fem.win.temp[[1]]
 
-fem.win.temp
+pvalue(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]],
+       metric='C', sample.size=57)
+plothist(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]])
+plotdelta(dataset=fem.win.temp[[1]]$Dataset)
+plotweights(dataset=fem.win.temp[[1]]$Dataset)
+plotbetas(dataset=fem.win.temp[[1]]$Dataset)
+plotwin(dataset=fem.win.temp[[1]]$Dataset)
+plotbest(dataset=fem.win.temp[[1]]$Dataset,
+         bestmodel=fem.win.temp[[1]]$BestModel,
+         bestmodeldata=fem.win.temp[[1]]$BestModelData)
+
+##Assess GDD
 fem.win.GDD5$combos
-fem.win.precip
+fem.win.GDD5[[1]]
+
+pvalue(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]],
+       metric='C', sample.size=57)
+plothist(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]])
+plotdelta(dataset=fem.win.GDD5[[1]]$Dataset)
+plotweights(dataset=fem.win.GDD5[[1]]$Dataset)
+plotbetas(dataset=fem.win.GDD5[[1]]$Dataset)
+plotwin(dataset=fem.win.GDD5[[1]]$Dataset)
+plotbest(dataset=fem.win.GDD5[[1]]$Dataset,
+         bestmodel=fem.win.GDD5[[1]]$BestModel,
+         bestmodeldata=fem.win.GDD5[[1]]$BestModelData)
+
+##Assess precip
+fem.win.precip$combos
+fem.win.precip[[1]]
+
+pvalue(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]],
+       metric='C', sample.size=57)
+plothist(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]])
+plotdelta(dataset=fem.win.precip[[1]]$Dataset)
+plotweights(dataset=fem.win.precip[[1]]$Dataset)
+plotbetas(dataset=fem.win.precip[[1]]$Dataset)
+plotwin(dataset=fem.win.precip[[1]]$Dataset)
+plotbest(dataset=fem.win.precip[[1]]$Dataset,
+         bestmodel=fem.win.precip[[1]]$BestModel,
+         bestmodeldata=fem.win.precip[[1]]$BestModelData)
 
 
-pvalue(dataset=fem.win.precip[[2]]$Dataset, datasetrand=fem.win.randPrecip[[1]],
-       metric='AIC', sample.size=57)
-plothist(dataset=fem.win.precip[[2]]$Dataset, datasetrand=fem.win.randPrecip[[1]])
-plotdelta(dataset=fem.win.precip[[2]]$Dataset)
-plotweights(dataset=fem.win.precip[[2]]$Dataset)
-plotbetas(dataset=fem.win.precip[[2]]$Dataset)
-plotwin(dataset=fem.win.precip[[2]]$Dataset)
-plotbest(dataset=fem.win.precip[[2]]$Dataset,
-         bestmodel=fem.win.precip[[2]]$BestModel,
-         bestmodeldata=fem.win.precip[[2]]$BestModelData)
-
-
-fem.win.GDD0$combos
-
-fem.win.GDD0[[1]]
-pvalue(dataset=fem.win.GDD0[[1]]$Dataset, datasetrand=fem.win.randGDD0[[1]],
-       metric='AIC', sample.size=57)
-plothist(dataset=fem.win.GDD0[[1]]$Dataset, datasetrand=fem.win.randGDD0[[1]])
-plotdelta(dataset=fem.win.GDD0[[1]]$Dataset)
-plotweights(dataset=fem.win.GDD0[[1]]$Dataset)
-plotbetas(dataset=fem.win.GDD0[[1]]$Dataset)
-plotwin(dataset=fem.win.GDD0[[1]]$Dataset)
-plotbest(dataset=fem.win.GDD0[[1]]$Dataset,
-         bestmodel=fem.win.GDD0[[1]]$BestModel,
-         bestmodeldata=fem.win.GDD0[[1]]$BestModelData)
-
-
-
+######################################
+####Recruitment modeling#############
 #Try on recruitment using relative window before and after spawning
 xvar <- inner_join(select(temps, GDD0, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
 xvar
@@ -361,26 +378,68 @@ r.baseline
 
 CV <- function(x) {sd(x)/mean(x)}
 
-#Thermal habitat before spawning
-rec.win.before.GDD5 <- slidingwin(exclude = c(10,1),
-                                  xvar=list(GDD5=xvar$GDD5),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+####Before spawning####
+#Temperature
+rec.win.before.temp <- slidingwin(exclude = c(10,-1),
+                                         xvar=list(Temp=xvar$PredWaterTemp),
+                                         cdate=xvar$Date,
+                                         bdate=r.biol$FemDate,
+                                         baseline=r.baseline,
+                                         type="relative",
+                                         refday=c(15,5),
+                                         stat=c("mean","CV"),
+                                         func=c("lin"),
+                                         range=c(300, 0),
+                                         cinterval="day",
+                                         cmissing="method1",
+                                         k=0)
+rec.win.before.temp$combos
+
+#GDD5
+rec.win.before.GDD5 <- slidingwin(exclude = c(10,-1),
+                                  xvar=list(Temp=xvar$PredWaterTemp),
                                   cdate=xvar$Date,
                                   bdate=r.biol$FemDate,
                                   baseline=r.baseline,
+                                  upper=5,
                                   type="relative",
                                   refday=c(15,5),
-                                  stat=c("sum","sd"),#,"slope","mean"),
+                                  stat=c("sum"),
                                   func=c("lin"),
                                   range=c(300, 0),
                                   cinterval="day",
                                   cmissing="method1",
                                   k=0)
-rec.win.before.GDD0$combos
 rec.win.before.GDD5$combos
+
+#Precipitation
+rec.win.before.precip <- slidingwin(exclude = c(10,30),
+                                  xvar=list(Temp=xvar$meanPrecip),
+                                  cdate=xvar$Date,
+                                  bdate=r.biol$FemDate,
+                                  baseline=r.baseline,
+                                  type="relative",
+                                  refday=c(15,5),
+                                  stat=c("sum"),
+                                  func=c("lin"),
+                                  range=c(300, 0),
+                                  cinterval="day",
+                                  cmissing="method1",
+                                  k=0)
+
+
+####After spawning####
+#Temperature
+
+#GDD5
+
+#Precipitation
+
+#Thermal habitat before spawning
 
 
 #Thermal habitat after spawning
-rec.win.after.GDD0.log <- slidingwin(exclude = c(10,-230),
+rec.win.after.GDD5.precip <- slidingwin(exclude = c(10,-230),
                                  xvar=list(GDD0=xvar$GDD0),#, Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
                                  cdate=xvar$Date,
                                  bdate=r.biol$FemDate,
@@ -903,3 +962,5 @@ plotwin(dataset=yoylen.win[[1]]$Dataset)
 plotbest(dataset=yoylen.win[[1]]$Dataset,
          bestmodel=yoylen.win[[1]]$BestModel,
          bestmodeldata=yoylen.win[[1]]$BestModelData)
+
+
