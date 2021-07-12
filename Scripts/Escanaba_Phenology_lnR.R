@@ -97,7 +97,7 @@ maxDOY <- all.pred %>%
 maxDOY
 
 plot(DOY ~ Year, maxDOY, type="b")
-
+summary(lm(DOY ~ Year, maxDOY))
 
 #Bring in environmental data
 #Now Environmental data - start with precipitation
@@ -179,14 +179,24 @@ dat
 
 #Changes in spawn timing, water temp at spawn, and light at spawn
 plot(FemDOY ~ Year, dat, type="b"); abline(reg=lm(FemDOY ~ Year, dat), col="blue")
+summary(lm(FemDOY ~ Year, dat))
+summary(lm(IceOffDOY ~ Year, dat))
+summary(lm(IceDuration ~ Year, dat))
+
 plot(PredWaterTemp ~ Year, dat); abline(reg=lm(PredWaterTemp ~ Year, dat), col="blue")
 plot(DayLen ~ Year, dat); abline(reg=lm(DayLen ~ Year, dat), col="blue")
 
 #Correlation to ice-on, ice-off, ice-duration
-detrendFemDOY <- resid(lm(FemDOY ~ Year, data=dat[!is.na(dat$IceOnDOY),]))
-detrendIceOff <- resid(lm(IceOffDOY ~ Year, data=dat))
-detrendIceOn <- resid(lm(IceOnDOY ~ Year, data=dat))
-
+detrendFemDOY <- resid(lm(FemDOY ~ Year, data=dat, na.action="na.exclude"))
+detrendIceOff <- resid(lm(IceOffDOY ~ Year, data=dat, na.action="na.exclude"))
+detrendIceOn <- resid(lm(IceOnDOY ~ Year, data=dat, na.action="na.exclude"))
+detrendIceDur <- resid(lm(IceDuration ~ Year, dat, na.action="na.exclude"))
+detrendWaterTemp <- resid(lm(PredWaterTemp ~ Year, dat, na.action="na.exclude"))
+detrendAge0PE <- resid(lm(log(Age0PE) ~ Year, dat, na.action="na.exclude"))
+summary(lm(PredWaterTemp ~ Year, dat))
+summary(lm(FemDOY ~ IceOffDOY, dat))
+summary(lm(detrendFemDOY ~ detrendIceOff))
+summary(lm(detrendFemDOY ~ detrendIceDur))
 plot(FemDOY ~ IceOnDOY, dat); abline(reg=lm(FemDOY ~ IceOnDOY, dat), col="blue")
 plot(detrendFemDOY ~ detrendIceOn); abline(reg=lm(detrendFemDOY ~ detrendIceOn), col="blue")
 
@@ -196,11 +206,15 @@ plot(detrendFemDOY ~ detrendIceOff); abline(reg=lm(detrendFemDOY ~ detrendIceOff
 #Recruitment vs spawn time, winter, and temp at spawn
 plot(Age0PE ~ FemDOY, dat); abline(reg=lm(Age0PE ~ FemDOY, dat), col="blue") 
 plot(Age0PE ~ DayLen, dat); abline(reg=lm(Age0PE ~ DayLen, dat), col="blue") 
-plot(log(Age0PE) ~ PredWaterTemp, dat); abline(reg=lm(Age0PE ~ PredWaterTemp, dat), col="blue") 
+plot(log(Age0PE) ~ PredWaterTemp, dat); abline(reg=lm(log(Age0PE) ~ PredWaterTemp, dat), col="blue") 
 plot(Age0PE ~ IceOnDOY, dat); abline(reg=lm(Age0PE ~ IceOnDOY, dat), col="blue") 
-plot(Age0PE ~ IceOffDOY, dat); abline(reg=lm(Age0PE ~ IceOffDOY, dat), col="blue") 
-plot(Age0PE ~ IceDuration, dat); abline(reg=lm(Age0PE ~ IceDuration, dat), col="blue") 
+plot(log(Age0PE) ~ IceOffDOY, dat); abline(reg=lm(Age0PE ~ IceOffDOY, dat), col="blue") 
+plot(log(Age0PE) ~ IceDuration, dat); abline(reg=lm(Age0PE ~ IceDuration, dat), col="blue") 
 
+summary(lm(detrendAge0PE ~ detrendFemDOY))
+summary(lm(detrendAge0PE ~ detrendIceOff))
+summary(lm(detrendAge0PE ~ detrendIceDur))
+summary(lm(detrendAge0PE ~ detrendWaterTemp))
 
 #Climate windows analysis
 
@@ -568,6 +582,115 @@ rec.win.after.precip.rand <- randwin(exclude = c(10,-230),
                                    cmissing="method1",
                                    k=5, repeats=10)
 
+rec.win.before.temp$combos
+rec.win.before.GDD5$combos
+rec.win.before.precip$combos
+
+###Mean Temperature before
+pvalue(dataset=rec.win.before.temp[[1]]$Dataset, datasetrand=rec.win.before.temp.rand[[1]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.before.temp[[1]]$Dataset, datasetrand=rec.win.before.temp.rand[[1]])
+plotdelta(dataset=rec.win.before.temp[[1]]$Dataset)
+plotweights(dataset=rec.win.before.temp[[1]]$Dataset)
+plotbetas(dataset=rec.win.before.temp[[1]]$Dataset)
+plotwin(dataset=rec.win.before.temp[[1]]$Dataset)
+plotbest(dataset=rec.win.before.temp[[1]]$Dataset,
+         bestmodel=rec.win.before.temp[[1]]$BestModel,
+         bestmodeldata=rec.win.before.temp[[1]]$BestModelData)
+
+###CV Temperature before
+pvalue(dataset=rec.win.before.temp[[2]]$Dataset, datasetrand=rec.win.before.temp.rand[[2]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.before.temp[[2]]$Dataset, datasetrand=rec.win.before.temp.rand[[2]])
+plotdelta(dataset=rec.win.before.temp[[2]]$Dataset)
+plotweights(dataset=rec.win.before.temp[[2]]$Dataset)
+plotbetas(dataset=rec.win.before.temp[[2]]$Dataset)
+plotwin(dataset=rec.win.before.temp[[2]]$Dataset)
+plotbest(dataset=rec.win.before.temp[[2]]$Dataset,
+         bestmodel=rec.win.before.temp[[2]]$BestModel,
+         bestmodeldata=rec.win.before.temp[[2]]$BestModelData)
+
+##GDD5 before
+###Mean GDD5erature
+pvalue(dataset=rec.win.before.GDD5[[1]]$Dataset, datasetrand=rec.win.before.GDD5.rand[[1]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.before.GDD5[[1]]$Dataset, datasetrand=rec.win.before.GDD5.rand[[1]])
+plotdelta(dataset=rec.win.before.GDD5[[1]]$Dataset)
+plotweights(dataset=rec.win.before.GDD5[[1]]$Dataset)
+plotbetas(dataset=rec.win.before.GDD5[[1]]$Dataset)
+plotwin(dataset=rec.win.before.GDD5[[1]]$Dataset)
+plotbest(dataset=rec.win.before.GDD5[[1]]$Dataset,
+         bestmodel=rec.win.before.GDD5[[1]]$BestModel,
+         bestmodeldata=rec.win.before.GDD5[[1]]$BestModelData)
+
+##precip before
+###Mean preciperature
+pvalue(dataset=rec.win.before.precip[[1]]$Dataset, datasetrand=rec.win.before.precip.rand[[1]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.before.precip[[1]]$Dataset, datasetrand=rec.win.before.precip.rand[[1]])
+plotdelta(dataset=rec.win.before.precip[[1]]$Dataset)
+plotweights(dataset=rec.win.before.precip[[1]]$Dataset)
+plotbetas(dataset=rec.win.before.precip[[1]]$Dataset)
+plotwin(dataset=rec.win.before.precip[[1]]$Dataset)
+plotbest(dataset=rec.win.before.precip[[1]]$Dataset,
+         bestmodel=rec.win.before.precip[[1]]$BestModel,
+         bestmodeldata=rec.win.before.precip[[1]]$BestModelData)
+
+#####After spawning
+rec.win.after.temp$combos
+rec.win.after.GDD5$combos
+rec.win.after.precip$combos
+
+###Mean Temperature after
+pvalue(dataset=rec.win.after.temp[[1]]$Dataset, datasetrand=rec.win.after.temp.rand[[1]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.after.temp[[1]]$Dataset, datasetrand=rec.win.after.temp.rand[[1]])
+plotdelta(dataset=rec.win.after.temp[[1]]$Dataset)
+plotweights(dataset=rec.win.after.temp[[1]]$Dataset)
+plotbetas(dataset=rec.win.after.temp[[1]]$Dataset)
+plotwin(dataset=rec.win.after.temp[[1]]$Dataset)
+plotbest(dataset=rec.win.after.temp[[1]]$Dataset,
+         bestmodel=rec.win.after.temp[[1]]$BestModel,
+         bestmodeldata=rec.win.after.temp[[1]]$BestModelData)
+
+###CV Temperature after
+pvalue(dataset=rec.win.after.temp[[2]]$Dataset, datasetrand=rec.win.after.temp.rand[[2]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.after.temp[[2]]$Dataset, datasetrand=rec.win.after.temp.rand[[2]])
+plotdelta(dataset=rec.win.after.temp[[2]]$Dataset)
+plotweights(dataset=rec.win.after.temp[[2]]$Dataset)
+plotbetas(dataset=rec.win.after.temp[[2]]$Dataset)
+plotwin(dataset=rec.win.after.temp[[2]]$Dataset)
+plotbest(dataset=rec.win.after.temp[[2]]$Dataset,
+         bestmodel=rec.win.after.temp[[2]]$BestModel,
+         bestmodeldata=rec.win.after.temp[[2]]$BestModelData)
+
+##GDD5 after
+###Mean GDD5erature
+pvalue(dataset=rec.win.after.GDD5[[1]]$Dataset, datasetrand=rec.win.after.GDD5.rand[[1]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.after.GDD5[[1]]$Dataset, datasetrand=rec.win.after.GDD5.rand[[1]])
+plotdelta(dataset=rec.win.after.GDD5[[1]]$Dataset)
+plotweights(dataset=rec.win.after.GDD5[[1]]$Dataset)
+plotbetas(dataset=rec.win.after.GDD5[[1]]$Dataset)
+plotwin(dataset=rec.win.after.GDD5[[1]]$Dataset)
+plotbest(dataset=rec.win.after.GDD5[[1]]$Dataset,
+         bestmodel=rec.win.after.GDD5[[1]]$BestModel,
+         bestmodeldata=rec.win.after.GDD5[[1]]$BestModelData)
+
+##precip after
+###Mean preciperature
+pvalue(dataset=rec.win.after.precip[[1]]$Dataset, datasetrand=rec.win.after.precip.rand[[1]],
+       metric='C', sample.size=55)
+plothist(dataset=rec.win.after.precip[[1]]$Dataset, datasetrand=rec.win.after.precip.rand[[1]])
+plotdelta(dataset=rec.win.after.precip[[1]]$Dataset)
+plotweights(dataset=rec.win.after.precip[[1]]$Dataset)
+plotbetas(dataset=rec.win.after.precip[[1]]$Dataset)
+plotwin(dataset=rec.win.after.precip[[1]]$Dataset)
+plotbest(dataset=rec.win.after.precip[[1]]$Dataset,
+         bestmodel=rec.win.after.precip[[1]]$BestModel,
+         bestmodeldata=rec.win.after.precip[[1]]$BestModelData)
+
 
 
 
@@ -726,7 +849,7 @@ plot(growthrate ~ FemDOY, data=meanyoylen)
 plot(growthrate ~ IceOffDOY, data=meanyoylen)
 plot(growthrate ~ GDD, data=meanyoylen)
 plot(Length ~ GDD, data=meanyoylen)
-plot(growthrate ~ Year, data=meanyoylen)
+plot(growthrate ~ year(Date), data=meanyoylen)
 
 meanyoylen <- meanyoylen %>%
   mutate(Year=year(Date)) %>%
@@ -736,34 +859,183 @@ meanyoylen
 ####Climwin for YOY length post spawn relative window
 
 #Try on recruitment using relative window before and after spawning
-xvar <- inner_join(select(temps, GDD0, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
+xvar <- inner_join(select(temps, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
 xvar
 
 meanyoylen <- filter(meanyoylen, year(Date) < 2020)
+hist(meanyoylen$Length)
 len.baseline <- lm(Length ~ 1, data=meanyoylen)
 
-#Thermal habitat before spawning
-yoylen.win <- slidingwin(exclude = c(10,1),
-                         xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#Temperature effects on growth
+yoylen.win.temp <- slidingwin(exclude = c(10,1),
+                         xvar=list(Temp=xvar$PredWaterTemp),
                          cdate=xvar$Date,
                          bdate=meanyoylen$Date,
                          baseline=len.baseline,
                          type="relative",
                          #refday=c(15,5),
-                         stat=c("sum", "CV", "mean"),
+                         stat=c("mean", "CV"),
                          func=c("lin"),
                          range=c(180, 0),
                          cinterval="day",
                          cmissing="method1",
-                         k=5)
-yoylen.win$combos
+                         k=2)
 
-plotdelta(dataset=yoylen.win[[1]]$Dataset)
-plotweights(dataset=yoylen.win[[1]]$Dataset)
-plotbetas(dataset=yoylen.win[[1]]$Dataset)
-plotwin(dataset=yoylen.win[[1]]$Dataset)
-plotbest(dataset=yoylen.win[[1]]$Dataset,
-         bestmodel=yoylen.win[[1]]$BestModel,
-         bestmodeldata=yoylen.win[[1]]$BestModelData)
+#GDD5 on growth
+yoylen.win.GDD5 <- slidingwin(exclude = c(10,1),
+                              xvar=list(Temp=xvar$PredWaterTemp),
+                              cdate=xvar$Date,
+                              bdate=meanyoylen$Date,
+                              baseline=len.baseline,
+                              type="relative",
+                              upper=5,
+                              stat=c("sum"),
+                              func=c("lin"),
+                              range=c(180, 0),
+                              cinterval="day",
+                              cmissing="method1",
+                              k=2)
+
+###Precip on growth
+yoylen.win.precip <- slidingwin(exclude = c(10,1),
+                                xvar=list(Precip=xvar$meanPrecip),
+                                cdate=xvar$Date,
+                                bdate=meanyoylen$Date,
+                                baseline=len.baseline,
+                                type="relative",
+                                stat=c("sum"),
+                                func=c("lin"),
+                                range=c(180, 0),
+                                cinterval="day",
+                                cmissing="method1",
+                                k=2)
+yoylen.win.temp$combos
+yoylen.win.GDD5$combos
+yoylen.win.precip$combos
+
+#Randomizations
+#Temperature
+yoylen.win.temp.rand <- randwin(exclude = c(10,1),
+                                xvar=list(Temp=xvar$PredWaterTemp),
+                                cdate=xvar$Date,
+                                bdate=meanyoylen$Date,
+                                baseline=len.baseline,
+                                type="relative",
+                                stat=c("mean","CV"),
+                                func=c("lin"),
+                                range=c(180, 0),
+                                cinterval="day",
+                                cmissing="method1",
+                                k=2, repeats=10)
+
+#GDD5
+yoylen.win.GDD5.rand <- randwin(exclude = c(10,1),
+                                xvar=list(Temp=xvar$PredWaterTemp),
+                                cdate=xvar$Date,
+                                bdate=meanyoylen$Date,
+                                baseline=len.baseline,
+                                type="relative",
+                                upper=5,
+                                stat=c("sum"),
+                                func=c("lin"),
+                                range=c(180, 0),
+                                cinterval="day",
+                                cmissing="method1",
+                                k=2, repeats=10)
+
+#GDD5
+yoylen.win.precip.rand <- randwin(exclude = c(10,1),
+                                xvar=list(Precip=xvar$meanPrecip),
+                                cdate=xvar$Date,
+                                bdate=meanyoylen$Date,
+                                baseline=len.baseline,
+                                type="relative",
+                                stat=c("sum"),
+                                func=c("lin"),
+                                range=c(180, 0),
+                                cinterval="day",
+                                cmissing="method1",
+                                k=2, repeats=10)
 
 
+##Assess critical periods for growth
+#####After spawning
+yoylen.win.temp$combos
+yoylen.win.GDD5$combos
+yoylen.win.precip$combos
+
+###Mean Temperature
+pvalue(dataset=yoylen.win.temp[[1]]$Dataset, datasetrand=yoylen.win.temp.rand[[1]],
+       metric='C', sample.size=30)
+plothist(dataset=yoylen.win.temp[[1]]$Dataset, datasetrand=yoylen.win.temp.rand[[1]])
+plotdelta(dataset=yoylen.win.temp[[1]]$Dataset)
+plotweights(dataset=yoylen.win.temp[[1]]$Dataset)
+plotbetas(dataset=yoylen.win.temp[[1]]$Dataset)
+plotwin(dataset=yoylen.win.temp[[1]]$Dataset)
+plotbest(dataset=yoylen.win.temp[[1]]$Dataset,
+         bestmodel=yoylen.win.temp[[1]]$BestModel,
+         bestmodeldata=yoylen.win.temp[[1]]$BestModelData)
+
+###CV Temperature
+pvalue(dataset=yoylen.win.temp[[2]]$Dataset, datasetrand=yoylen.win.temp.rand[[2]],
+       metric='C', sample.size=30)
+plothist(dataset=yoylen.win.temp[[2]]$Dataset, datasetrand=yoylen.win.temp.rand[[2]])
+plotdelta(dataset=yoylen.win.temp[[2]]$Dataset)
+plotweights(dataset=yoylen.win.temp[[2]]$Dataset)
+plotbetas(dataset=yoylen.win.temp[[2]]$Dataset)
+plotwin(dataset=yoylen.win.temp[[2]]$Dataset)
+plotbest(dataset=yoylen.win.temp[[2]]$Dataset,
+         bestmodel=yoylen.win.temp[[2]]$BestModel,
+         bestmodeldata=yoylen.win.temp[[2]]$BestModelData)
+
+##GDD5
+pvalue(dataset=yoylen.win.GDD5[[1]]$Dataset, datasetrand=yoylen.win.GDD5.rand[[1]],
+       metric='C', sample.size=30)
+plothist(dataset=yoylen.win.GDD5[[1]]$Dataset, datasetrand=yoylen.win.GDD5.rand[[1]])
+plotdelta(dataset=yoylen.win.GDD5[[1]]$Dataset)
+plotweights(dataset=yoylen.win.GDD5[[1]]$Dataset)
+plotbetas(dataset=yoylen.win.GDD5[[1]]$Dataset)
+plotwin(dataset=yoylen.win.GDD5[[1]]$Dataset)
+plotbest(dataset=yoylen.win.GDD5[[1]]$Dataset,
+         bestmodel=yoylen.win.GDD5[[1]]$BestModel,
+         bestmodeldata=yoylen.win.GDD5[[1]]$BestModelData)
+
+##precip
+pvalue(dataset=yoylen.win.precip[[1]]$Dataset, datasetrand=yoylen.win.precip.rand[[1]],
+       metric='C', sample.size=30)
+plothist(dataset=yoylen.win.precip[[1]]$Dataset, datasetrand=yoylen.win.precip.rand[[1]])
+plotdelta(dataset=yoylen.win.precip[[1]]$Dataset)
+plotweights(dataset=yoylen.win.precip[[1]]$Dataset)
+plotbetas(dataset=yoylen.win.precip[[1]]$Dataset)
+plotwin(dataset=yoylen.win.precip[[1]]$Dataset)
+plotbest(dataset=yoylen.win.precip[[1]]$Dataset,
+         bestmodel=yoylen.win.precip[[1]]$BestModel,
+         bestmodeldata=yoylen.win.precip[[1]]$BestModelData)
+
+
+
+#Temperature effects on growth - look for two windows?
+yoylen.win.temp <- slidingwin(exclude = c(10,1),
+                              xvar=list(Temp=xvar$PredWaterTemp),
+                              cdate=xvar$Date,
+                              bdate=meanyoylen$Date,
+                              baseline=len.baseline,
+                              type="relative",
+                              #refday=c(15,5),
+                              stat=c("mean", "CV"),
+                              func=c("lin"),
+                              range=c(180, 0),
+                              cinterval="day",
+                              cmissing="method1",
+                              k=2)
+
+
+#Mismatch stats
+dat
+dat$Mismatch <- abs(scale(dat$FemDOY, center=T, scale=F))
+
+plot(log(Age0PE) ~ Mismatch, data=dat)
+thing <- glm(Age0PE ~ Mismatch, data=dat, family="poisson")
+predict(thing, type="response")
+
+plot(IceOffDOY ~ Year, dat, type="b")
