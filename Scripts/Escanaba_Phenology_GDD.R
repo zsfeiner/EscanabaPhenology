@@ -1,0 +1,1 @@
+#Use GAMM to model walleye spawning phenology as a function of degree days following Pederson et al.
