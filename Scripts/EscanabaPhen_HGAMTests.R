@@ -36,7 +36,7 @@ ggplot(data=wae, aes(x=DOY, y=Females, group=Year)) +
   geom_point() + 
   facet_wrap(~Year, scales="free")
 
-ggplot(data=wae, aes(x=DOY, y=Females, group=Year, color=Year)) + 
+ggplot(data=filter(wae, Year %in% c(2000:2020)), aes(x=DOY, y=Females, group=Year, color=Year)) + 
   geom_line(lwd=1) + geom_point(color="black") + 
   theme_classic() + scale_color_viridis_c() + facet_wrap(~Year, scales="free")
 
@@ -71,6 +71,8 @@ modGS <- gam(Females ~ s(DOY, bs="cc", k=6) + s(DOY, fYear, k=6, bs="fs", xt=lis
 modGI <- gam(Females ~ s(DOY, bs="cc", k=6) + s(DOY, by=fYear, k=6,  bs="cc",m=2) +
                s(fYear, bs="re"), data=sel.wae, family=quasipoisson(), method="REML", knots=list(DOY=c(80,150)))
 
+#Cyclic smoother
+
 summary(modG)
 summary(modGS)
 summary(modGI)
@@ -89,7 +91,7 @@ gam.check(modGI)
 
 lim.pred.data <- sel.wae %>%
   group_by(fYear) %>%
-  summarize(first=min(DOY)-10, last=max(DOY)+10) %>%
+  summarize(first=min(DOY)-15, last=max(DOY)+15) %>%
   group_by(fYear) %>%
   group_modify(~ tibble(DOY = seq(.$first, .$last))) %>%
   ungroup()
