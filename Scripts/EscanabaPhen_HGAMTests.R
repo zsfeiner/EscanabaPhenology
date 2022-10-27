@@ -173,7 +173,7 @@ gdd <- function(x, y, start.month, start.day) {
     gdd[i,1] = month(y$Date[i])
     gdd[i,2] = day(y$Date[i])
     gdd[i,3] = year(y$Date[i])
-    gdd[i,4] = ifelse(length(t$PredWaterTemp)>0,sum(t$PredWaterTemp),NA)
+    gdd[i,4] = ifelse(length(t$PredWaterTemp)>0,sum(t$PredWaterTemp[t$PredWaterTemp>5]-5),NA)
   }
   colnames(gdd) <- c("Month","Day","Year","GDD")
   gdd <- as_tibble(gdd)
@@ -229,6 +229,7 @@ gam.check(modG.GDD)
 gam.check(modGS.GDD)
 gam.check(modGI.GDD)
 
+plot(modGI.GDD)
 
 #Predictions
 GDD.pred.data <- sel.wae %>%
