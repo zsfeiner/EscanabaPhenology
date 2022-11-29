@@ -187,3 +187,324 @@ ggplot(sel.wae, aes(x=DOY, y=Females, group=fYear)) +
 par(mfrow=c(1,1))
 plot(SpawnDOY ~ as.numeric(fYear), data=esc.phen, type="b")
 
+########Compare predicted water temps against USGS model - does pretty well, ice season is more iffy#######
+########Test water temps from my model against USGS lake model
+
+#Predicted water temperatures for Escanaba
+
+predtemps <- read_csv("ModeledEscanabaWaterTemps_1956.2020.csv")
+predtemps$Date <- as.Date(predtemps$Date, format="%m/%d/%Y")
+
+usgstemps <- read_csv("Escanaba_USGS_Temperatures.csv")
+
+
+combtemps <- left_join(usgstemps, predtemps, by=c("date"="Date"))
+combtemps
+
+select(combtemps, date, temp_0, PredWaterTemp)
+cor(combtemps$temp_0, combtemps$PredWaterTemp)
+
+
+plot(PredWaterTemp ~ temp_0, data=filter(combtemps, month(date) %in% c(12,1,2,3)))
+
+
+
+######
+#######Use climate windows package to predict model-predicted female catches based on environmental variables
+######
+
+#Bring in environmental data
+#Now Environmental data - start with precipitation
+#Precipitation
+precip <- read_csv("NOAA_NCDC_NorthernWIWeather_1940_2020.csv", 
+                   col_types=cols(
+                     STATION = col_character(),
+                     NAME = col_character(),
+                     LATITUDE = col_double(),
+                     LONGITUDE = col_double(),
+                     ELEVATION = col_double(),
+                     DATE = col_date(format="%m/%d/%Y"),
+                     AWND = col_double(),
+                     MDWM = col_double(),
+                     PRCP = col_double(),
+                     SNOW = col_double(),
+                     SNWD = col_double(),
+                     TAVG = col_double(),
+                     TMAX = col_double(),
+                     TMIN = col_double(),
+                     TSUN = col_double(),
+                     WDMV = col_double()))
+meanprecip <-
+  precip %>%
+  filter(NAME %in% c("EAGLE RIVER, WI US", "MINOCQUA, WI US", "PHELPS, WI US",
+                     "RAINBOW RSVR LK TOMAHAWK, WI US", "REST LAKE, WI US")) %>%
+  group_by(DATE) %>%
+  summarize(meanPrecip=mean(PRCP, na.rm=T), meanSnow=mean(SNOW, na.rm=T), 
+            meanMaxTemp=mean(TMAX, na.rm=T), meanMinTemp=mean(TMIN, na.rm=T), meanTemp = mean(c(meanMaxTemp, meanMinTemp)), N=sum(!is.na(PRCP)), meanWind=mean(WDMV, na.rm=T))
+meanprecip
+
+#Photoperiod
+
+Photo <- data.frame(Date = seq(min(precip$DATE), as.Date("12/31/2020", format="%m/%d/%Y"), by=1), Year = NA, DOY = NA, DayLen = NA)
+Photo$Year <- year(Photo$Date)
+Photo$DOY <- as.numeric(strftime(Photo$Date, format="%j"))
+Photo$DayLen <- daylength(Photo$Date, lat = 46.06413190)
+Photo
+
+#Water temperature (under ice modeled from Sparkling lake under ice buoy)
+temps <- read_csv(file="ModeledEscanabaWaterTemps_1956.2020.csv",
+                  col_types=cols(
+                    Date=col_date(format="%m/%d/%Y"),
+                    Notes = col_character()))
+temps
+
+#Ice data
+#Ice on and off dates and water temps during them
+ice <- read_csv("Escanaba_IceDates_1956_2020.csv",
+                col_types=cols(
+                  IceOn=col_date(format="%m/%d/%Y"),
+                  IceOff=col_date(format="%m/%d/%Y")))
+ice$IceOnDOY <- as.numeric(strftime(ice$IceOn, format="%j"))
+ice$IceOffDOY <- as.numeric(strftime(ice$IceOff, format="%j"))
+ice
+
+#Get recruitment
+YOYPE <- read_csv("EscanabaStockRecruitPE.csv")
+
+#Get recruitment sampling dates
+
+YOYdates <- read_csv("WAE_YOY_CompositeThrough2019.csv")
+YOYdates <- YOYdates %>%
+  filter(MWBC == 2339900) %>% mutate(Date = as.Date(DATE, format="%m/%d/%Y")) %>%
+  group_by(YEAR) %>%
+  summarize(Date=mean(Date))
+YOYdates
+
+
+
+#Climate windows analysis
+
+#Create GDD0
+temps$GDD0 <- ifelse(temps$PredWaterTemp > 0, temps$PredWaterTemp, 0)
+temps$GDD5 <- ifelse(temps$PredWaterTemp >= 5, temps$PredWaterTemp, 0)
+
+
+##Model predicted female walleye abundance data, scaled and centered within years
+pred.wae <- select(lim.pred.data, fYear, DOY, modGIfit) %>%
+  mutate(Date = as.Date(DOY-1, origin=paste0(fYear, "-01-01"))) %>%
+  group_by(fYear) %>%
+  mutate(PredWaeCount = round(modGIfit, 0), scPredFem = scale(modGIfit, center=F, scale=T), propFem = PredWaeCount/sum(PredWaeCount)) %>%
+  filter(fYear != 2021)
+
+ggplot(pred.wae, aes(x=DOY, y=scPredFem, group=fYear)) + 
+  geom_line()
+
+#Set up environmental variables
+xvar <- inner_join(select(temps, GDD0, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
+xvar
+
+baseline <- glm(scPredFem ~ 1, data=pred.wae, family="Gamma")
+baseline
+
+#Use mean, CV of water temperature, sum of GDD5, and sum of precip
+fem.win.temp <- slidingwin(exclude = c(10,30),
+                           xvar=list(Temp=xvar$PredWaterTemp),
+                           cdate=xvar$Date,
+                           bdate=pred.wae$Date,
+                           baseline=baseline,
+                           type="relative",
+                           stat=c("mean"),
+                           func=c("quad"),
+                           range=c(270, 0),
+                           cinterval="day",
+                           cmissing="method1",
+                           k=5)
+
+##Assess temp
+fem.win.temp$combos
+fem.win.temp[[1]]
+
+#pvalue(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]],
+#       metric='C', sample.size=57)
+#plothist(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]])
+plotdelta(dataset=fem.win.temp[[1]]$Dataset)
+plotweights(dataset=fem.win.temp[[1]]$Dataset)
+plotbetas(dataset=fem.win.temp[[1]]$Dataset)
+plotwin(dataset=fem.win.temp[[1]]$Dataset)
+plotbest(dataset=fem.win.temp[[1]]$Dataset,
+         bestmodel=fem.win.temp[[1]]$BestModel,
+         bestmodeldata=fem.win.temp[[1]]$BestModelData)
+
+
+fem.win.GDD5 <- slidingwin(exclude = c(10,30),
+                           xvar=list(Temp=xvar$GDD5),# Precip=xvar$meanPrecip, DayLen=xvar$Photoperiod),
+                           cdate=xvar$Date,
+                           bdate=pred.wae$Date,
+                           baseline=baseline,
+                           type="relative",
+                           stat=c("sum"),
+                           func=c("quad"),
+                           range=c(270, 0),
+                           cinterval="day",
+                           cmissing="method1",
+                           k=5)
+##Assess GDD
+fem.win.GDD5$combos
+fem.win.GDD5[[1]]
+#pvalue(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]],
+#       metric='C', sample.size=57)
+#plothist(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]])
+plotdelta(dataset=fem.win.GDD5[[1]]$Dataset)
+plotweights(dataset=fem.win.GDD5[[1]]$Dataset)
+plotbetas(dataset=fem.win.GDD5[[1]]$Dataset)
+plotwin(dataset=fem.win.GDD5[[1]]$Dataset)
+plotbest(dataset=fem.win.GDD5[[1]]$Dataset,
+         bestmodel=fem.win.GDD5[[1]]$BestModel,
+         bestmodeldata=fem.win.GDD5[[1]]$BestModelData)
+
+
+fem.win.precip <- slidingwin(exclude = c(10,30),
+                             xvar=list(Precip=xvar$meanPrecip),
+                             cdate=xvar$Date,
+                             bdate=pred.wae$Date,
+                             baseline=baseline,
+                             type="relative",
+                             stat=c("sum"),
+                             func=c("lin"),
+                             range=c(270, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=5)
+
+##Assess GDD
+fem.win.precip$combos
+fem.win.precip[[1]]
+#pvalue(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]],
+#       metric='C', sample.size=57)
+#plothist(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]])
+plotdelta(dataset=fem.win.precip[[1]]$Dataset)
+plotweights(dataset=fem.win.precip[[1]]$Dataset)
+plotbetas(dataset=fem.win.precip[[1]]$Dataset)
+plotwin(dataset=fem.win.precip[[1]]$Dataset)
+plotbest(dataset=fem.win.precip[[1]]$Dataset,
+         bestmodel=fem.win.precip[[1]]$BestModel,
+         bestmodeldata=fem.win.precip[[1]]$BestModelData)
+
+fem.win.daylen <- slidingwin(exclude = c(10,30),
+                             xvar=list(Photoperiod=xvar$Photoperiod),
+                             cdate=xvar$Date,
+                             bdate=pred.wae$Date,
+                             baseline=baseline,
+                             type="relative",
+                             stat=c("mean"),
+                             func=c("quad"),
+                             range=c(270, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=5)
+
+##Assess GDD
+fem.win.daylen$combos
+fem.win.daylen[[1]]
+#pvalue(dataset=fem.win.daylen[[1]]$Dataset, datasetrand=fem.win.rand.daylen[[1]],
+#       metric='C', sample.size=57)
+#plothist(dataset=fem.win.daylen[[1]]$Dataset, datasetrand=fem.win.rand.daylen[[1]])
+plotdelta(dataset=fem.win.daylen[[1]]$Dataset)
+plotweights(dataset=fem.win.daylen[[1]]$Dataset)
+plotbetas(dataset=fem.win.daylen[[1]]$Dataset)
+plotwin(dataset=fem.win.daylen[[1]]$Dataset)
+plotbest(dataset=fem.win.daylen[[1]]$Dataset,
+         bestmodel=fem.win.daylen[[1]]$BestModel,
+         bestmodeldata=fem.win.daylen[[1]]$BestModelData)
+
+
+#Randomize sum of temp
+fem.win.rand.temp <- randwin(exclude = c(10,30),
+                             xvar=list(Temp=xvar$PredWaterTemp),
+                             cdate=xvar$Date,
+                             bdate=biol$FemDate,
+                             baseline=baseline,
+                             type="absolute",
+                             refday=c(15,5),
+                             stat=c("mean", "CV"),
+                             func=c("lin"),
+                             range=c(365, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=5, repeats=10)
+
+fem.win.rand.GDD5 <- randwin(exclude = c(10,30),
+                             xvar=list(Temp=xvar$PredWaterTemp),
+                             cdate=xvar$Date,
+                             bdate=biol$FemDate,
+                             baseline=baseline,
+                             upper=5,
+                             type="absolute",
+                             refday=c(15,5),
+                             stat=c("sum"),
+                             func=c("lin"),
+                             range=c(365, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=5, repeats=10)
+
+#Randomize mean precip
+fem.win.rand.precip <- randwin(exclude = c(10,30),
+                               xvar=list(Precip=xvar$meanPrecip),
+                               cdate=xvar$Date,
+                               bdate=biol$FemDate,
+                               baseline=baseline,
+                               type="absolute",
+                               refday=c(15,5),
+                               stat=c("sum"),
+                               func=c("lin"),
+                               range=c(365, 0),
+                               cinterval="day",
+                               cmissing="method1",
+                               k=5, repeats=10)
+
+
+##Assess temp
+fem.win.temp$combos
+fem.win.temp[[1]]
+
+pvalue(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]],
+       metric='C', sample.size=57)
+plothist(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]])
+plotdelta(dataset=fem.win.temp[[1]]$Dataset)
+plotweights(dataset=fem.win.temp[[1]]$Dataset)
+plotbetas(dataset=fem.win.temp[[1]]$Dataset)
+plotwin(dataset=fem.win.temp[[1]]$Dataset)
+plotbest(dataset=fem.win.temp[[1]]$Dataset,
+         bestmodel=fem.win.temp[[1]]$BestModel,
+         bestmodeldata=fem.win.temp[[1]]$BestModelData)
+
+##Assess GDD
+fem.win.GDD5$combos
+fem.win.GDD5[[1]]
+
+pvalue(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]],
+       metric='C', sample.size=57)
+plothist(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]])
+plotdelta(dataset=fem.win.GDD5[[1]]$Dataset)
+plotweights(dataset=fem.win.GDD5[[1]]$Dataset)
+plotbetas(dataset=fem.win.GDD5[[1]]$Dataset)
+plotwin(dataset=fem.win.GDD5[[1]]$Dataset)
+plotbest(dataset=fem.win.GDD5[[1]]$Dataset,
+         bestmodel=fem.win.GDD5[[1]]$BestModel,
+         bestmodeldata=fem.win.GDD5[[1]]$BestModelData)
+
+##Assess precip
+fem.win.precip$combos
+fem.win.precip[[1]]
+
+pvalue(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]],
+       metric='C', sample.size=57)
+plothist(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]])
+plotdelta(dataset=fem.win.precip[[1]]$Dataset)
+plotweights(dataset=fem.win.precip[[1]]$Dataset)
+plotbetas(dataset=fem.win.precip[[1]]$Dataset)
+plotwin(dataset=fem.win.precip[[1]]$Dataset)
+plotbest(dataset=fem.win.precip[[1]]$Dataset,
+         bestmodel=fem.win.precip[[1]]$BestModel,
+         bestmodeldata=fem.win.precip[[1]]$BestModelData)
