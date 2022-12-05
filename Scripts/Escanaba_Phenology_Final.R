@@ -418,93 +418,56 @@ plotbest(dataset=fem.win.daylen[[1]]$Dataset,
          bestmodeldata=fem.win.daylen[[1]]$BestModelData)
 
 
-#Randomize sum of temp
+#Randomize relationships to test for significance
 fem.win.rand.temp <- randwin(exclude = c(10,30),
                              xvar=list(Temp=xvar$PredWaterTemp),
                              cdate=xvar$Date,
-                             bdate=biol$FemDate,
+                             bdate=pred.wae$Date,
                              baseline=baseline,
-                             type="absolute",
-                             refday=c(15,5),
-                             stat=c("mean", "CV"),
-                             func=c("lin"),
-                             range=c(365, 0),
+                             type="relative",
+                             stat=c("mean"),
+                             func=c("quad"),
+                             range=c(270, 0),
                              cinterval="day",
                              cmissing="method1",
                              k=5, repeats=10)
 
 fem.win.rand.GDD5 <- randwin(exclude = c(10,30),
-                             xvar=list(Temp=xvar$PredWaterTemp),
+                             xvar=list(Temp=xvar$GDD5),
                              cdate=xvar$Date,
-                             bdate=biol$FemDate,
+                             bdate=pred.wae$Date,
                              baseline=baseline,
-                             upper=5,
-                             type="absolute",
-                             refday=c(15,5),
+                             type="relative",
                              stat=c("sum"),
-                             func=c("lin"),
-                             range=c(365, 0),
+                             func=c("quad"),
+                             range=c(270, 0),
                              cinterval="day",
                              cmissing="method1",
                              k=5, repeats=10)
 
-#Randomize mean precip
 fem.win.rand.precip <- randwin(exclude = c(10,30),
-                               xvar=list(Precip=xvar$meanPrecip),
+                             xvar=list(Temp=xvar$meanPrecip),
+                             cdate=xvar$Date,
+                             bdate=pred.wae$Date,
+                             baseline=baseline,
+                             type="relative",
+                             stat=c("sum"),
+                             func=c("lin"),
+                             range=c(270, 0),
+                             cinterval="day",
+                             cmissing="method1",
+                             k=5, repeats=10)
+
+fem.win.rand.daylen <- randwin(exclude = c(10,30),
+                               xvar=list(Temp=xvar$Photoperiod),
                                cdate=xvar$Date,
-                               bdate=biol$FemDate,
+                               bdate=pred.wae$Date,
                                baseline=baseline,
-                               type="absolute",
-                               refday=c(15,5),
+                               type="relative",
                                stat=c("sum"),
-                               func=c("lin"),
-                               range=c(365, 0),
+                               func=c("quad"),
+                               range=c(270, 0),
                                cinterval="day",
                                cmissing="method1",
                                k=5, repeats=10)
 
-
-##Assess temp
-fem.win.temp$combos
-fem.win.temp[[1]]
-
-pvalue(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]],
-       metric='C', sample.size=57)
-plothist(dataset=fem.win.temp[[1]]$Dataset, datasetrand=fem.win.rand.temp[[1]])
-plotdelta(dataset=fem.win.temp[[1]]$Dataset)
-plotweights(dataset=fem.win.temp[[1]]$Dataset)
-plotbetas(dataset=fem.win.temp[[1]]$Dataset)
-plotwin(dataset=fem.win.temp[[1]]$Dataset)
-plotbest(dataset=fem.win.temp[[1]]$Dataset,
-         bestmodel=fem.win.temp[[1]]$BestModel,
-         bestmodeldata=fem.win.temp[[1]]$BestModelData)
-
-##Assess GDD
-fem.win.GDD5$combos
-fem.win.GDD5[[1]]
-
-pvalue(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]],
-       metric='C', sample.size=57)
-plothist(dataset=fem.win.GDD5[[1]]$Dataset, datasetrand=fem.win.rand.GDD5[[1]])
-plotdelta(dataset=fem.win.GDD5[[1]]$Dataset)
-plotweights(dataset=fem.win.GDD5[[1]]$Dataset)
-plotbetas(dataset=fem.win.GDD5[[1]]$Dataset)
-plotwin(dataset=fem.win.GDD5[[1]]$Dataset)
-plotbest(dataset=fem.win.GDD5[[1]]$Dataset,
-         bestmodel=fem.win.GDD5[[1]]$BestModel,
-         bestmodeldata=fem.win.GDD5[[1]]$BestModelData)
-
-##Assess precip
-fem.win.precip$combos
-fem.win.precip[[1]]
-
-pvalue(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]],
-       metric='C', sample.size=57)
-plothist(dataset=fem.win.precip[[1]]$Dataset, datasetrand=fem.win.rand.precip[[1]])
-plotdelta(dataset=fem.win.precip[[1]]$Dataset)
-plotweights(dataset=fem.win.precip[[1]]$Dataset)
-plotbetas(dataset=fem.win.precip[[1]]$Dataset)
-plotwin(dataset=fem.win.precip[[1]]$Dataset)
-plotbest(dataset=fem.win.precip[[1]]$Dataset,
-         bestmodel=fem.win.precip[[1]]$BestModel,
-         bestmodeldata=fem.win.precip[[1]]$BestModelData)
