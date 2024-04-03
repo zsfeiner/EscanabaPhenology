@@ -5,13 +5,18 @@ functions {
 data {
   int<lower=1> N;  // total number of observations
   vector[N] DOY;  // response variable
+  vector[N] Year; //Explanatory variable
+  int<lower=1> nYear; //Number of years
   }
 
 transformed data {
 }
 
 parameters {
-  real Intercept;  // temporary intercept for centered predictors
+  //real Intercept;  // temporary intercept for centered predictors
+  vector[nYear] b_int_raw; //standardized random effects on mean
+  real<lower=0> sigma_int //Variance for random effect on mean
+  
   real<lower=0> sigma;  // dispersion parameter
   real alpha;  // skewness parameter
 }
@@ -20,6 +25,10 @@ transformed parameters {
   lprior += normal_lpdf(Intercept | 110, 5);
   lprior += cauchy_lpdf(sigma | 0, 5);
   lprior += normal_lpdf(alpha | 0, 4);
+  
+  lprior += cauchy_lpdf(sigma_int | 0, 2);
+  lprior += normal_lpdf(b1 | 0, sigma_int);
+
 }
 model {
   // likelihood including constants

@@ -41,25 +41,22 @@ ggplot(data=fem, aes(x=DOY, group=Year)) +
   geom_density() + facet_wrap(~Year, scales="free_y")
 
 
-fem_skew <- brm(DOY ~ 1, family = skew_normal(), data = fem)
-pp_check(fem_skew, nsamples = 1e2)
-fem_skew
-
 fem$Year <- as.factor(fem$Year)
-seldata <- filter(fem, Year %in% c(2003,2012, 2013, 2015))
+seldata <- filter(fem, Year %in% c(2003:2006))
 hist(seldata$DOY)
 
-formula <- bf(DOY ~ (1|Year))#, sigma ~ 0+(1|Year), alpha ~ 0+(1|Year))
+formula <- bf(DOY ~ 0+(1|Year), sigma ~ 0+(1|Year))#, alpha ~ 0+(1|Year))
 
 #myprior <-  get_prior(DOY ~ 0+intercept+(1|Year), alpha ~ 0+intercept+(1|Year), family=skew_normal(), data=seldata)
 
-myprior <- get_prior(formula, family=skew_normal(), data=seldata)
+myprior <- get_prior(formula, family=gaussian(), data=fem)
 
 code <- make_stancode(formula, prior=myprior, family=skew_normal(), data=seldata)
+data <- make_standata(formula, prior=myprior, family=skew_normal(), data=seldata)
 
+test_skew <- brm(formula, family=gaussian(), data=fem, prior=myprior,
+                 cores=3, chains=3, iter=1000, thin=3, inits=0)
 
-test_skew <- brm(formula, family=skew_normal(), data=seldata, prior=myprior,
-                 cores=3, chains=3, iter=400, thin=1)
 summary(test_skew)
 test_skew$fit
 pp_check(test_skew, ndraws=100)
