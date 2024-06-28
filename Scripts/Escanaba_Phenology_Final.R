@@ -328,7 +328,7 @@ plot(Females ~ Photoperiod, data=env.wae)
 
 mod.fem <- gam(Females ~ s(PredWaterTemp, bs="cs", k=6) + s(Photoperiod, bs="cs") +
                  s(meanPrecip, bs='cs') + ti(Photoperiod, PredWaterTemp, bs='cs') +
-               s(fYear, bs="re"), data=env.wae, family=quasipoisson(), method="REML")
+               s(fYear, bs="re"), data=env.wae, family=poisson, method="REML")
 mod.fem.int <- gam(Females ~ s(meanPrecip, bs='cs') + te(Photoperiod, PredWaterTemp, bs='cs') +
                      s(fYear, bs="re"), data=env.wae, family=quasipoisson(), method="REML")
 
@@ -347,9 +347,17 @@ summary(mod.fem.int)
 summary(mod.fem0)
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, theta=45, phi=25, color="topo", ticktype="detailed", xlab="Water temperature", zlab="Response")
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, theta=225, phi=25, color="topo", ticktype="detailed", xlab="Water temperature", zlab="Response")
-plot(mod.fem, scheme=1, residuals=T, select=1, cex=3, ylab="Partial effect", xlab="Water temperature")
-plot(mod.fem, scheme=1, residuals=T, select=2, cex=3, ylab="Partial effect")
+vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, xlab="Water temperature", plot.type="contour", main="", contour.col="gray20")
 
+par(mfrow=c(2,2))
+plot(mod.fem, scheme=1, residuals=T, select=1, cex=3, ylab="Partial effect", xlab="Water temperature")
+mtext(side=3, text="a)", adj=0.015, padj=2)
+plot(mod.fem, scheme=1, residuals=T, select=2, cex=3, ylab="Partial effect")
+mtext(side=3, text="b)", adj=0.015, padj=2)
+plot(mod.fem, scheme=1, residuals=T, select=3, cex=3, ylab="Partial effect", xlab="Mean precipitation")
+mtext(side=3, text="c)", adj=0.015, padj=2)
+vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, xlab="Water temperature", plot.type="contour", main="", contour.col="gray20")
+mtext(side=3, text="d)", adj=0.015, padj=2)
 
 plot(Photoperiod ~ DOY, data=env.wae)
 plot(Females ~ DOY, data=env.wae)
@@ -370,7 +378,7 @@ gampredplot <- ggplot(env.wae, aes(x=DOY, y=Females, group=fYear)) +
                                 ymax=predict(mod.fem, type="response") + predict(mod.fem, type="response", se=T)$se.fit*1.96),
               color=NA, fill="blue", alpha=0.3) +
   theme_classic()
-
+gampredplot
 ggsave("Gam_Pred_plot.png", gampredplot, units="in", dpi=300, height=13, width=20, scale=0.8)
 
 ggplot(env.wae, aes(x=DOY, y=Females)) + 
@@ -437,10 +445,26 @@ rec.win.all.rand <- randwin(exclude = c(10,-150),
                              range=c(120, -150),
                              cinterval="day",
                              cmissing="method1", repeats=100)
+for (i in c(1,2,3,5,6,7)) {
+print(pvalue(dataset=rec.win.all[[i]]$Dataset, datasetrand=rec.win.all.rand[[i]],
+       metric='AIC', sample.size=55))
+  plothist(dataset=rec.win.all[[i]]$Dataset, datasetrand=rec.win.all.rand[[i]])  
+}
+rec.win.all$combos
+plothist(dataset=rec.win.all[[1]]$Dataset, datasetrand=rec.win.all.rand[[1]])
+plothist(dataset=rec.win.all[[2]]$Dataset, datasetrand=rec.win.all.rand[[2]])
+plothist(dataset=rec.win.all[[3]]$Dataset, datasetrand=rec.win.all.rand[[3]])
+plothist(dataset=rec.win.all[[5]]$Dataset, datasetrand=rec.win.all.rand[[5]])
+plothist(dataset=rec.win.all[[6]]$Dataset, datasetrand=rec.win.all.rand[[6]])
+plothist(dataset=rec.win.all[[7]]$Dataset, datasetrand=rec.win.all.rand[[7]])
 
-pvalue(dataset=rec.win.all[[2]]$Dataset, datasetrand=rec.win.all_rand[[1]],
-       metric='AIC', sample.size=55)
-plothist(dataset=rec.win.all[[1]]$Dataset, datasetrand=rec.win.all_rand[[1]])
+
+plotbest(dataset=rec.win.all[[7]]$Dataset, bestmodel=rec.win.all[[7]]$BestModel,
+         bestmodeldata=rec.win.all[[7]]$BestModelData)
+plotwin(dataset=rec.win.all[[7]]$Dataset)
+plotdelta(dataset=rec.win.all[[1]]$Dataset)
+plotweights(dataset=rec.win.all[[7]]$Dataset)
+plotbetas(dataset=rec.win.all[[7]]$Dataset)
 
 #Do three year groups in 17-19 yr clusters
 rec.dat <- rec.dat %>%
@@ -522,47 +546,162 @@ rec.win.past[[1]]
 rec.win.mid[[1]]
 rec.win.present[[1]]
 
+#This may take too long, just do the best performing for each variable
 pastbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="past"))
-rec.win.past.rand <- randwin(exclude = c(10,-150),
-                           xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-                           cdate=xvar$Date,
-                           bdate=filter(rec.dat, period=="past")$SpawnDate,
-                           baseline=pastbaseline,
-                           type="relative",
-                           stat=c("mean","slope"),
-                           func=c("lin", "quad"),
-                           range=c(120, -150),
-                           cinterval="day",
-                           cmissing="method1", repeats=100)
+
+#only use mean precip, but include slope of temp if better
+plotdelta(rec.win.past[[6]]$Dataset)
+plotweights(rec.win.past[[6]]$Dataset)
+plotwin(rec.win.past[[6]]$Dataset)
+plotbest(dataset=rec.win.past[[6]]$Dataset,
+         bestmodel=rec.win.past[[6]]$BestModel,
+         bestmodeldata=rec.win.past[[6]]$BestModelData)
+rec.win.past.rand_Precip.mean.quad <- randwin(exclude = c(10,-150),
+                                              xvar=list(Precip=xvar$meanPrecip),
+                                              cdate=xvar$Date,
+                                              bdate=filter(rec.dat, period=="past")$SpawnDate,
+                                              baseline=pastbaseline,
+                                              type="relative",
+                                              stat=c("mean"),
+                                              func=c("quad"),
+                                              range=c(120, -150),
+                                              cinterval="day",
+                                              cmissing="method1", repeats=100)
+pvalue(dataset=rec.win.past[[6]]$Dataset, datasetrand=rec.win.past.rand_Precip.mean.quad[[1]],
+       metric='AIC', sample.size=19)
+
+rec.win.past$combos
+plotdelta(rec.win.past[[7]]$Dataset)
+plotbest(dataset=rec.win.past[[7]]$Dataset,
+         bestmodel=rec.win.past[[7]]$BestModel,
+         bestmodeldata=rec.win.past[[7]]$BestModelData)
+rec.win.past.rand_Temp.slope.quad <- randwin(exclude = c(10,-150),
+                                             xvar=list(GDD0=xvar$GDD0),
+                                             cdate=xvar$Date,
+                                             bdate=filter(rec.dat, period=="past")$SpawnDate,
+                                             baseline=pastbaseline,
+                                             type="relative",
+                                             stat=c("slope"),
+                                             func=c("quad"),
+                                             range=c(120, -150),
+                                             cinterval="day",
+                                             cmissing="method1", repeats=100)
+pvalue(dataset=rec.win.past[[7]]$Dataset, datasetrand=rec.win.past.rand_Temp.slope.quad[[1]],
+       metric='AIC', sample.size=19)
+
+# rec.win.past.rand <- randwin(exclude = c(10,-150),
+#                            xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                            cdate=xvar$Date,
+#                            bdate=filter(rec.dat, period=="past")$SpawnDate,
+#                            baseline=pastbaseline,
+#                            type="relative",
+#                            stat=c("mean","slope"),
+#                            func=c("lin", "quad"),
+#                            range=c(120, -150),
+#                            cinterval="day",
+#                            cmissing="method1", repeats=100)
 
 midbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="mid"))
-rec.win.mid.rand <- randwin(exclude = c(10,-150),
-                          xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-                          cdate=xvar$Date,
-                          bdate=filter(rec.dat, period=="mid")$SpawnDate,
-                          baseline=midbaseline,
-                          type="relative",
-                          stat=c("mean","slope"),
-                          func=c("lin", "quad"),
-                          range=c(120, -150),
-                          cinterval="day",
-                          cmissing="method1", repeats=100)
+plotdelta(rec.win.mid[[2]]$Dataset)
+plotbest(dataset=rec.win.mid[[2]]$Dataset,
+         bestmodel=rec.win.mid[[2]]$BestModel,
+         bestmodeldata=rec.win.mid[[2]]$BestModelData)
+rec.win.mid.rand_Precip.mean.lin <- randwin(exclude = c(10,-150),
+                            xvar=list(Precip=xvar$meanPrecip),
+                            cdate=xvar$Date,
+                            bdate=filter(rec.dat, period=="mid")$SpawnDate,
+                            baseline=midbaseline,
+                            type="relative",
+                            stat=c("mean"),
+                            func=c("lin"),
+                            range=c(120, -150),
+                            cinterval="day",
+                            cmissing="method1", repeats=100)
+pvalue(dataset=rec.win.mid[[2]]$Dataset, datasetrand=rec.win.mid.rand_Precip.mean.lin[[1]],
+       metric='AIC', sample.size=19)
+
+plotdelta(rec.win.mid[[3]]$Dataset)
+plotbest(dataset=rec.win.mid[[3]]$Dataset,
+         bestmodel=rec.win.mid[[3]]$BestModel,
+         bestmodeldata=rec.win.mid[[3]]$BestModelData)
+rec.win.mid.rand_Temp.slope.lin <- randwin(exclude = c(10,-150),
+                            xvar=list(GDD0=xvar$GDD0),
+                            cdate=xvar$Date,
+                            bdate=filter(rec.dat, period=="mid")$SpawnDate,
+                            baseline=midbaseline,
+                            type="relative",
+                            stat=c("slope"),
+                            func=c("lin"),
+                            range=c(120, -150),
+                            cinterval="day",
+                            cmissing="method1", repeats=100)
+pvalue(dataset=rec.win.mid[[3]]$Dataset, datasetrand=rec.win.mid.rand_Temp.slope.lin[[1]],
+       metric='AIC', sample.size=19)
+
+# rec.win.mid.rand <- randwin(exclude = c(10,-150),
+#                           xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                           cdate=xvar$Date,
+#                           bdate=filter(rec.dat, period=="mid")$SpawnDate,
+#                           baseline=midbaseline,
+#                           type="relative",
+#                           stat=c("mean","slope"),
+#                           func=c("lin", "quad"),
+#                           range=c(120, -150),
+#                           cinterval="day",
+#                           cmissing="method1", repeats=100)
 
 presentbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="present"))
-rec.win.present.rand <- randwin(exclude = c(10,-150),
-                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-                              cdate=xvar$Date,
-                              bdate=filter(rec.dat, period=="present")$SpawnDate,
-                              baseline=presentbaseline,
-                              type="relative",
-                              stat=c("mean","slope"),
-                              func=c("lin", "quad"),
-                              range=c(120, -150),
-                              cinterval="day",
-                              cmissing="method1", repeats=100)
+plotdelta(rec.win.present[[6]]$Dataset)
+plotwin(rec.win.present[[6]]$Dataset)
+plotweights(rec.win.present[[6]]$Dataset)
+plotbest(dataset=rec.win.present[[6]]$Dataset,
+         bestmodel=rec.win.present[[6]]$BestModel,
+         bestmodeldata=rec.win.present[[6]]$BestModelData)
+rec.win.present.rand_Precip.mean.quad <- randwin(exclude = c(10,-150),
+                                xvar=list(Precip=xvar$meanPrecip),
+                                cdate=xvar$Date,
+                                bdate=filter(rec.dat, period=="present")$SpawnDate,
+                                baseline=presentbaseline,
+                                type="relative",
+                                stat=c("mean"),
+                                func=c("quad"),
+                                range=c(120, -150),
+                                cinterval="day",
+                                cmissing="method1", repeats=100)
+pvalue(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand_Precip.mean.quad[[1]],
+       metric='AIC', sample.size=17)
+
+plotdelta(rec.win.present[[7]]$Dataset)
+plotbest(dataset=rec.win.mid[[7]]$Dataset,
+         bestmodel=rec.win.mid[[7]]$BestModel,
+         bestmodeldata=rec.win.mid[[7]]$BestModelData)
+rec.win.present.rand_Temp.slope.quad <- randwin(exclude = c(10,-150),
+                                xvar=list(GDD0=xvar$GDD0),
+                                cdate=xvar$Date,
+                                bdate=filter(rec.dat, period=="present")$SpawnDate,
+                                baseline=presentbaseline,
+                                type="relative",
+                                stat=c("slope"),
+                                func=c("quad"),
+                                range=c(120, -150),
+                                cinterval="day",
+                                cmissing="method1", repeats=100)
+pvalue(dataset=rec.win.present[[7]]$Dataset, datasetrand=rec.win.present.rand_Temp.slope.quad[[1]],
+       metric='AIC', sample.size=17)
+# rec.win.present.rand <- randwin(exclude = c(10,-150),
+#                               xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
+#                               cdate=xvar$Date,
+#                               bdate=filter(rec.dat, period=="present")$SpawnDate,
+#                               baseline=presentbaseline,
+#                               type="relative",
+#                               stat=c("mean","slope"),
+#                               func=c("lin", "quad"),
+#                               range=c(120, -150),
+#                               cinterval="day",
+#                               cmissing="method1", repeats=100)
 
 #Past
-rec.win.past
+nrow(filter(rec.dat, period=="present"))
 pvalue(dataset=rec.win.past[[1]]$Dataset, datasetrand=rec.win.past.rand[[1]],
        metric='AIC', sample.size=19)
 pvalue(dataset=rec.win.past[[2]]$Dataset, datasetrand=rec.win.past.rand[[2]],
@@ -593,8 +732,8 @@ pvalue(dataset=rec.win.present[[2]]$Dataset, datasetrand=rec.win.present.rand[[2
 pvalue(dataset=rec.win.present[[3]]$Dataset, datasetrand=rec.win.present.rand[[3]],
        metric='AIC', sample.size=17)
 pvalue(dataset=rec.win.present[[4]]$Dataset, datasetrand=rec.win.present.rand[[4]],
-       metric='AIC', sample.size=17)
-plothist(dataset=rec.win.present[[3]]$Dataset, datasetrand=rec.win.present.rand[[3]])
+       metric='C', sample.size=17)
+plothist(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand_Precip.mean.quad[[1]])
 
 plotbest(dataset=rec.win.past[[4]]$Dataset,
          bestmodel=rec.win.past[[4]]$BestModel,
@@ -602,18 +741,54 @@ plotbest(dataset=rec.win.past[[4]]$Dataset,
 plotbest(dataset=rec.win.mid[[4]]$Dataset,
          bestmodel=rec.win.mid[[4]]$BestModel,
          bestmodeldata=rec.win.mid[[4]]$BestModelData)
-plotbest(dataset=rec.win.present[[4]]$Dataset,
-         bestmodel=rec.win.present[[4]]$BestModel,
-         bestmodeldata=rec.win.present[[4]]$BestModelData)
 
-plotdelta(rec.win.present[[4]]$Dataset)
-plotwin(rec.win.present[[4]]$Dataset)
+plotweights(rec.win.present[[6]]$Dataset)
+deltaplot <- plotdelta(rec.win.present[[6]]$Dataset)
+windowplot <- plotwin(dataset=rec.win.present[[6]]$Dataset) + 
+  ggtitle(paste("Climate window range for", (0.95 * 100), "% confidence set"))
+histplot <- plothist(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand_Precip.mean.quad[[1]])
+bestplot <- plotbest(dataset=rec.win.present[[6]]$Dataset,
+         bestmodel=rec.win.present[[6]]$BestModel,
+         bestmodeldata=rec.win.present[[6]]$BestModelData) + ylab("Recruitment response") + xlab("Mean precipitation")
+
+bestdat <- rec.win.present[[6]]$BestModelData
+bestdat$pred <- predict(rec.win.present[[6]]$BestModel)
+bestdat$UCI <- predict(rec.win.present[[6]]$BestModel, se=T)$se * 1.96 + bestdat$pred
+bestdat$LCI <- bestdat$pred - predict(rec.win.present[[6]]$BestModel, se=T)$se * 1.96
+
+predat <- tibble(climate=seq(min(bestdat$climate), max(bestdat$climate), 0.1)) %>%
+  mutate("I(climate^2)" = climate^2)
+
+preds <- predict(rec.win.present[[6]]$BestModel, newdata=predat, se=T)
+
+predat <- predat %>%
+  mutate(pred=preds$fit,
+         UCI=preds$fit + preds$se.fit*1.96,
+         LCI=preds$fit - preds$se.fit*1.96)
+predat
+
+bestmodplot <- ggplot(bestdat, aes(x=climate, y=yvar)) + 
+  geom_point(size=3, alpha=0.5, shape=21, fill="dark grey") + 
+  geom_line(data=predat, aes(x=climate, y=pred), inherit.aes=F, lwd=1) + 
+  geom_ribbon(data=predat, aes(x=climate, ymax=UCI, ymin=LCI), inherit.aes=F, alpha=0.3) + 
+  labs(title = "Output of best model", x = "Mean precipitation (mm)", 
+       y = "ln(R/S)") +
+  theme_climwin() 
+
+
+
+library(ggpubr)
+
+ggarrange(deltaplot, windowplot, histplot, bestmodplot, labels="auto", nrow=2, ncol=2)
+
+plotdelta(rec.win.present[[6]]$Dataset)
+plotwin(rec.win.present[[6]]$Dataset)
 rec.win.past$combos
 rec.win.mid$combos
 rec.win.present$combos
 
 
-
+cumsum(rec.win.present[[6]]$Dataset$ModWeight)
 
 plotwin(rec.win.past[[1]]$Dataset)
 plotwin(rec.win.past[[2]]$Dataset)
@@ -628,7 +803,7 @@ plotwin(rec.win.mid[[4]]$Dataset)
 plotwin(rec.win.present[[1]]$Dataset)
 plotwin(rec.win.present[[2]]$Dataset)
 plotwin(rec.win.present[[3]]$Dataset)
-plotwin(rec.win.present[[4]]$Dataset)
+plotwin(rec.win.present[[6]]$Dataset)
 
 xvar
 plot(meanPrecip ~ Date, xvar)
@@ -717,3 +892,77 @@ plotwin(dataset=rec.wind[[1]]$Dataset)
 plotbest(dataset=rec.wind[[1]]$Dataset,
          bestmodel=rec.wind[[1]]$BestModel,
          bestmodeldata=rec.wind[[1]]$BestModelData)
+
+
+#Calculate precip variable over time to determine changes?
+#Also calculate max, mean, CV within that window
+meanprecip
+rec.dat
+
+meanprecip$Year <- year(meanprecip$DATE)
+newprecip <- left_join(meanprecip, select(rec.dat, Year, SpawnDOY)) %>%
+  filter(!is.na(SpawnDOY)) %>%
+  mutate(PrecipDOY = as.numeric(strftime(DATE, format="%j")),
+         diff = SpawnDOY - PrecipDOY) %>%
+  filter(between(diff, -13,-6))
+newprecip
+
+newprecip2 <- newprecip %>%
+  group_by(Year) %>%
+  summarize(mean=mean(meanPrecip), max=max(meanPrecip), min=min(meanPrecip), CV = sd(meanPrecip)/mean(meanPrecip)) %>%
+  mutate(period = ifelse(Year < 1984, "Past", ifelse(Year > 2001, "Present", "Mid"))) %>%
+  group_by(period) %>%
+  mutate(mean.mean = mean(mean), mean.max=mean(max), mean.CV=mean(CV, na.rm=T))
+
+newprecip2
+
+ggplot(newprecip2, aes(y=mean, x=Year, group=period, color=period)) + 
+  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") + 
+  geom_line(aes(y = mean.mean, color=period, group=period))
+
+ggplot(newprecip2, aes(y=max, x=Year)) + 
+  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") + 
+  geom_line(aes(y = mean.max, color=period, group=period))
+ggplot(newprecip2, aes(y=CV, x=Year)) + 
+  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") +
+  geom_line(aes(y = mean.CV, color=period, group=period))
+
+#Repeat for temp
+temps
+rec.dat
+
+newtemps <- left_join(temps, select(rec.dat, Year, SpawnDOY)) %>%
+  filter(!is.na(SpawnDOY)) %>%
+  mutate(TempDOY = as.numeric(strftime(Date, format="%j")),
+         diff = SpawnDOY - TempDOY) %>%
+  filter(between(diff, -13,-6))
+newtemps
+
+newtemps2 <- newtemps %>%
+  group_by(Year) %>%
+  summarize(mean=mean(PredWaterTemp), CV = sd(PredWaterTemp)/mean(PredWaterTemp)) %>%
+  mutate(period = ifelse(Year < 1984, "Past", ifelse(Year > 2001, "Present", "Mid"))) %>%
+  group_by(period) %>%
+  mutate(mean.mean = mean(mean), mean.CV=mean(CV, na.rm=T))
+
+newtemps2
+
+ggplot(newtemps2, aes(y=mean, x=Year, group=period, color=period)) + 
+  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") + 
+  geom_line(aes(y = mean.mean, color=period, group=period))
+
+ggplot(newprecip2, aes(y=CV, x=Year)) + 
+  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") +
+  geom_line(aes(y = mean.CV, color=period, group=period))
+
+
+#Look at lake level
+ll <- read.table("clipboard", header=T)
+ll
+
+ll.mean <- aggregate(llevel_elevation ~ lakeid + year4, data=ll, FUN=mean)
+ggplot(ll.mean, aes(y=llevel_elevation, x=year4, group=lakeid)) + 
+  geom_line(aes(color=lakeid)) + geom_vline(xintercept=c(1983,2002), color="red")
+
+
+
