@@ -80,15 +80,23 @@ summary(sel.wae$DOY)
 modGI <- gam(Females ~ s(DOY, bs="cc", k=6) + s(DOY, by=fYear, k=6,  bs="cc",m=2) +
                     s(fYear, bs="re"), data=sel.wae, family=quasipoisson(), method="REML", knots=list(DOY=c(80,150)))
 
-#summary(modG)
-#summary(modGS)
-summary(modGI)
+anova(modG, modGS, modGI)
+
+summary(modG) #0.567, 60.7%
+summary(modGS) #0.76, 82.4%
+summary(modGI) #(0.805, 85.2%)
 
 library(gratia)
 
+MuMIn::QAIC(modG, chat=2)
+
 #draw(modGS)
 #draw(modG)
-draw(modGI)
+draw(modGI, select=1)
+draw(modGI, select=60)
+
+plot(modGI)
+
 
 #par(mfrow=c(2,2))
 #gam.check(modG)
@@ -104,9 +112,10 @@ lim.pred.data <- sel.wae %>%
   group_by(fYear) %>%
   group_modify(~ tibble(DOY = seq(.$first, .$last))) %>%
   ungroup()
-
-
-
+par(mfrow=c(2,1))
+plot(sel.wae$Females , predict(modGI, type="response"), xlab="Observed female catch", ylab="Predicted female catch")
+abline(a=0, b=1)
+hist(resid(modGI), xlab="Residual", main="")
 
 #pred.data <- tibble(DOY=rep(c(80:150), 61), fYear=as.factor(rep(unique(sel.wae$fYear), each=length(80:150))))
 #pred.data
@@ -140,11 +149,15 @@ lim.pred.data$modGIse <- modGI.pred$se.fit
 #   geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
 #   theme_classic() + facet_wrap(~fYear, scales="free")
 
-ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
-  #geom_ribbon(aes(x=DOY, ymin=modGIfit-modGIse, ymax=modGIfit+modGIse, group=fYear), alpha=0.4) +
+modgipredplot <- ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
   geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
-  geom_line(color="blue") + #ylim(c(-2,3)) +
-  theme_classic() + facet_wrap(~fYear, scales="free")
+  geom_line(color="blue", lwd=1) + #ylim(c(-2,3)) +
+  theme(base_size=20) + theme_bw() + facet_wrap(~fYear, scales="free_y", ncol=4) + 
+  xlab("DOY") + ylab("Catch (# female walleye)") 
+
+modgipredplot
+summary(lim.pred.data$DOY)
+ggsave("./Manuscript/ModGIPredPlot.png", width=14, height=20, units="in", dpi=400, scale=0.75)  
 
 # #plot all predictions
 # ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
@@ -238,6 +251,18 @@ precip <- read_csv("NOAA_NCDC_NorthernWIWeather_1940_2020.csv",
                      TMIN = col_double(),
                      TSUN = col_double(),
                      WDMV = col_double()))
+
+precip.sites <- precip %>%
+  filter(NAME %in% c("EAGLE RIVER, WI US", "MINOCQUA, WI US", "PHELPS, WI US",
+                      "RAINBOW RSVR LK TOMAHAWK, WI US", "REST LAKE, WI US")) %>%
+  filter(year(DATE) > 1946) %>%
+  group_by(STATION, NAME, LATITUDE, LONGITUDE) %>%
+  summarize(coverage = sum(!is.na(PRCP))/n())
+
+print.data.frame(precip.sites)
+
+precip
+
 meanprecip <-
   precip %>%
   filter(NAME %in% c("EAGLE RIVER, WI US", "MINOCQUA, WI US", "PHELPS, WI US",
@@ -339,7 +364,7 @@ summary(mod.fem)
 hist(resid(mod.fem))
 gam.check(mod.fem)
 plot(mod.fem)
-BIC(mod.fem, mod.fem0)
+AIC(mod.fem, mod.fem0, mod.fem.int)
 anova(mod.fem, mod.fem.int, mod.fem0)
 
 summary(mod.fem)
@@ -349,15 +374,18 @@ vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, theta=225, phi=25, color="topo", ticktype="detailed", xlab="Water temperature", zlab="Response")
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, xlab="Water temperature", plot.type="contour", main="", contour.col="gray20")
 
-par(mfrow=c(2,2))
-plot(mod.fem, scheme=1, residuals=T, select=1, cex=3, ylab="Partial effect", xlab="Water temperature")
+png(file="./Manuscript/Figures/Fig1_GAMMResult.png", res=500, width=7, height=6, units="in", pointsize=12)
+par(mfrow=c(2,2), mai = c(0.55, 0.75, 0.1, 0.1), mgp=c(2,0.75,0))
+plot(mod.fem, scheme=1, residuals=T, select=1, cex=3, ylab="Partial effect", xlab=expression("Water temperature ("*degree*"C)"))
 mtext(side=3, text="a)", adj=0.015, padj=2)
 plot(mod.fem, scheme=1, residuals=T, select=2, cex=3, ylab="Partial effect")
 mtext(side=3, text="b)", adj=0.015, padj=2)
-plot(mod.fem, scheme=1, residuals=T, select=3, cex=3, ylab="Partial effect", xlab="Mean precipitation")
+plot(mod.fem, scheme=1, residuals=T, select=3, cex=3, ylab="Partial effect", xlab="Mean precipitation (mm)")
 mtext(side=3, text="c)", adj=0.015, padj=2)
-vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, xlab="Water temperature", plot.type="contour", main="", contour.col="gray20")
+vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, xlab=expression("Water temperature ("*degree*"C)"), plot.type="contour", main="", contour.col="gray20", ylab="Photoperiod (hr)")
 mtext(side=3, text="d)", adj=0.015, padj=2)
+dev.off()
+
 
 plot(Photoperiod ~ DOY, data=env.wae)
 plot(Females ~ DOY, data=env.wae)
@@ -368,18 +396,19 @@ plot(mod.fem.int, scheme=1, too.far=0.1)
 plot(mgcViz::getViz(mod.fem))
 
 gampredplot <- ggplot(env.wae, aes(x=DOY, y=Females, group=fYear)) + 
-  geom_point() + 
+  geom_point() +
   #geom_vline(data=esc.phen, aes(xintercept=lower, group=fYear)) + 
   #geom_vline(data=esc.phen, aes(xintercept=upper, group=fYear)) + 
-  facet_wrap(~fYear, scales='free', ncol=10) + 
+  facet_wrap(~fYear, scales='free', ncol=6) + 
   #geom_line(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
   geom_line(data=env.wae, aes(x=DOY, y=predict(mod.fem, type="response")), color="blue", inherit.aes=F, lwd=1) + 
   geom_ribbon(data=env.wae, aes(x=DOY, ymin=predict(mod.fem, type="response") - predict(mod.fem, type="response", se=T)$se.fit*1.96,
                                 ymax=predict(mod.fem, type="response") + predict(mod.fem, type="response", se=T)$se.fit*1.96),
               color=NA, fill="blue", alpha=0.3) +
-  theme_classic()
+  theme_classic(base_size=14) + scale_x_continuous(breaks=seq(50,200,2)) + 
+  theme(axis.text.x=element_text(size=9))
 gampredplot
-ggsave("Gam_Pred_plot.png", gampredplot, units="in", dpi=300, height=13, width=20, scale=0.8)
+ggsave("./Manuscript/Figures/Fig2_Gam_Pred_plot.png", gampredplot, units="in", dpi=300, height=20, width=20, scale=0.8)
 
 ggplot(env.wae, aes(x=DOY, y=Females)) + 
   geom_point() + 
@@ -426,6 +455,13 @@ rec.win.all$combos
 rec.win.all[[1]]
 plotdelta(dataset=rec.win.all[[1]]$Dataset)
 plotweights(dataset=rec.win.all[[1]]$Dataset)
+plotweights(dataset=rec.win.all[[2]]$Dataset)
+plotweights(dataset=rec.win.all[[3]]$Dataset)
+plotweights(dataset=rec.win.all[[5]]$Dataset)
+plotweights(dataset=rec.win.all[[6]]$Dataset)
+plotweights(dataset=rec.win.all[[7]]$Dataset)
+
+
 plotbetas(dataset=rec.win.all[[1]]$Dataset)
 plotwin(dataset=rec.win.all[[1]]$Dataset)
 plotbest(dataset=rec.win.all[[1]]$Dataset,
@@ -450,6 +486,7 @@ print(pvalue(dataset=rec.win.all[[i]]$Dataset, datasetrand=rec.win.all.rand[[i]]
        metric='AIC', sample.size=55))
   plothist(dataset=rec.win.all[[i]]$Dataset, datasetrand=rec.win.all.rand[[i]])  
 }
+
 rec.win.all$combos
 plothist(dataset=rec.win.all[[1]]$Dataset, datasetrand=rec.win.all.rand[[1]])
 plothist(dataset=rec.win.all[[2]]$Dataset, datasetrand=rec.win.all.rand[[2]])
@@ -465,6 +502,41 @@ plotwin(dataset=rec.win.all[[7]]$Dataset)
 plotdelta(dataset=rec.win.all[[1]]$Dataset)
 plotweights(dataset=rec.win.all[[7]]$Dataset)
 plotbetas(dataset=rec.win.all[[7]]$Dataset)
+
+#Make giant figure for all outputs of full timeseries model
+library(ggpubr)
+alltime_suppl_plot <- ggpubr::ggarrange(
+  plotwin(rec.win.all[[1]]$Dataset) + xlab(expression("Linear mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.all[[1]]$Dataset),
+  plotweights(rec.win.all[[1]]$Dataset),
+  plothist(dataset=rec.win.all[[1]]$Dataset, datasetrand=rec.win.all.rand[[1]]),
+  plotwin(rec.win.all[[2]]$Dataset) + xlab(expression("Linear mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.all[[2]]$Dataset),
+  plotweights(rec.win.all[[2]]$Dataset),
+  plothist(dataset=rec.win.all[[2]]$Dataset, datasetrand=rec.win.all.rand[[2]]),
+  plotwin(rec.win.all[[3]]$Dataset) + xlab(expression("Linear slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.all[[3]]$Dataset),
+  plotweights(rec.win.all[[3]]$Dataset),
+  plothist(dataset=rec.win.all[[3]]$Dataset, datasetrand=rec.win.all.rand[[3]]),
+  plotwin(rec.win.all[[5]]$Dataset) + xlab(expression("Quadratic mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.all[[5]]$Dataset),
+  plotweights(rec.win.all[[5]]$Dataset),
+  plothist(dataset=rec.win.all[[5]]$Dataset, datasetrand=rec.win.all.rand[[5]]),
+  plotwin(rec.win.all[[6]]$Dataset) + xlab(expression("Quadratic mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.all[[6]]$Dataset),
+  plotweights(rec.win.all[[6]]$Dataset),
+  plothist(dataset=rec.win.all[[6]]$Dataset, datasetrand=rec.win.all.rand[[6]]),
+  plotwin(rec.win.all[[7]]$Dataset) + xlab(expression("Quadratic slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.all[[7]]$Dataset),
+  plotweights(rec.win.all[[7]]$Dataset),
+  plothist(dataset=rec.win.all[[7]]$Dataset, datasetrand=rec.win.all.rand[[7]]),
+  nrow=6, ncol=4)
+rec.win.all$combos
+alltime_suppl_plot
+
+ggsave("./Manuscript/AllTimeResults_SupplPlot.png", alltime_suppl_plot,
+       height=20,width=20, units="in", dpi=300, scale=1)
+
 
 #Do three year groups in 17-19 yr clusters
 rec.dat <- rec.dat %>%
@@ -516,6 +588,29 @@ rec.win.present <- slidingwin(exclude = c(10,-150),
 rec.win.past$combos
 rec.win.mid$combos
 rec.win.present$combos
+
+plotweights(dataset=rec.win.past[[1]]$Dataset)
+plotweights(dataset=rec.win.past[[2]]$Dataset)
+plotweights(dataset=rec.win.past[[3]]$Dataset)
+plotweights(dataset=rec.win.past[[5]]$Dataset)
+plotweights(dataset=rec.win.past[[6]]$Dataset)
+plotweights(dataset=rec.win.past[[7]]$Dataset)
+
+plotweights(dataset=rec.win.mid[[1]]$Dataset)
+plotweights(dataset=rec.win.mid[[2]]$Dataset)
+plotweights(dataset=rec.win.mid[[3]]$Dataset)
+plotweights(dataset=rec.win.mid[[5]]$Dataset)
+plotweights(dataset=rec.win.mid[[6]]$Dataset)
+plotweights(dataset=rec.win.mid[[7]]$Dataset)
+
+plotweights(dataset=rec.win.present[[1]]$Dataset) #temp mean lin
+plotweights(dataset=rec.win.present[[2]]$Dataset) #Precip mean lin
+plotweights(dataset=rec.win.present[[3]]$Dataset) #temp slope lin
+plotweights(dataset=rec.win.present[[5]]$Dataset) #temp mean quad
+plotweights(dataset=rec.win.present[[6]]$Dataset) #precip mean quad
+plotweights(dataset=rec.win.present[[7]]$Dataset) #temp slope quad
+
+
 
 plotdelta(dataset=rec.win.past[[1]]$Dataset)
 plotdelta(dataset=rec.win.mid[[1]]$Dataset)
@@ -743,6 +838,17 @@ plotbest(dataset=rec.win.mid[[4]]$Dataset,
          bestmodeldata=rec.win.mid[[4]]$BestModelData)
 
 plotweights(rec.win.present[[6]]$Dataset)
+presdat <- rec.win.present[[6]]$Dataset
+cumsum(presdat$ModWeight)
+presdatset <- presdat[1:12,]
+presdatset
+weighted.mean(presdatset$ModelBeta, w=presdatset$ModWeight)
+weighted.mean(presdatset$ModelBetaQ, w=presdatset$ModWeight)
+weighted.mean(presdatset$ModelInt, w=presdatset$ModWeight)
+median(presdatset$WindowOpen)
+median(presdatset$WindowClose)
+
+
 deltaplot <- plotdelta(rec.win.present[[6]]$Dataset)
 windowplot <- plotwin(dataset=rec.win.present[[6]]$Dataset) + 
   ggtitle(paste("Climate window range for", (0.95 * 100), "% confidence set"))
@@ -779,7 +885,10 @@ bestmodplot <- ggplot(bestdat, aes(x=climate, y=yvar)) +
 
 library(ggpubr)
 
-ggarrange(deltaplot, windowplot, histplot, bestmodplot, labels="auto", nrow=2, ncol=2)
+fig3 <- ggarrange(deltaplot, windowplot, histplot, bestmodplot, labels=c("a)", "b)","c)","d)"), nrow=2, ncol=2)
+fig3
+ggsave("./Manuscript/Figures/Fig3_RecentPrecipResult.png", fig3, dpi=500, units="in", width=7, height=6, scale=1.5)
+
 
 plotdelta(rec.win.present[[6]]$Dataset)
 plotwin(rec.win.present[[6]]$Dataset)
@@ -815,6 +924,127 @@ ggplot(data=filter(rec.win.before[[1]]$Dataset, deltaAICc <= -2) %>%
          pivot_longer(cols=c(WindowOpen,WindowClose)), aes(x=value, y=name)) + 
   geom_boxplot
 
+
+#Supplemental figures
+past_suppl_plot <- ggpubr::ggarrange(
+  plotwin(rec.win.past[[1]]$Dataset) + xlab(expression("Linear mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.past[[1]]$Dataset),
+  plotweights(rec.win.past[[1]]$Dataset),
+  #plothist(dataset=rec.win.past[[1]]$Dataset, datasetrand=rec.win.past.rand[[1]]),
+  plotwin(rec.win.past[[2]]$Dataset) + xlab(expression("Linear mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.past[[2]]$Dataset),
+  plotweights(rec.win.past[[2]]$Dataset),
+  #plothist(dataset=rec.win.past[[2]]$Dataset, datasetrand=rec.win.past.rand[[2]]),
+  plotwin(rec.win.past[[3]]$Dataset) + xlab(expression("Linear slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.past[[3]]$Dataset),
+  plotweights(rec.win.past[[3]]$Dataset),
+  #plothist(dataset=rec.win.past[[3]]$Dataset, datasetrand=rec.win.past.rand[[3]]),
+  plotwin(rec.win.past[[5]]$Dataset) + xlab(expression("Quadratic mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.past[[5]]$Dataset),
+  plotweights(rec.win.past[[5]]$Dataset),
+  #plothist(dataset=rec.win.past[[5]]$Dataset, datasetrand=rec.win.past.rand[[5]]),
+  plotwin(rec.win.past[[6]]$Dataset) + xlab(expression("Quadratic mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.past[[6]]$Dataset),
+  plotweights(rec.win.past[[6]]$Dataset),
+  #plothist(dataset=rec.win.past[[6]]$Dataset, datasetrand=rec.win.past.rand[[6]]),
+  plotwin(rec.win.past[[7]]$Dataset) + xlab(expression("Quadratic slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.past[[7]]$Dataset),
+  plotweights(rec.win.past[[7]]$Dataset),
+  #plothist(dataset=rec.win.past[[7]]$Dataset, datasetrand=rec.win.past.rand[[7]]),
+  nrow=6, ncol=3)
+past_suppl_plot
+mid_suppl_plot <- ggpubr::ggarrange(
+  plotwin(rec.win.mid[[1]]$Dataset) + xlab(expression("Linear mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.mid[[1]]$Dataset),
+  plotweights(rec.win.mid[[1]]$Dataset),
+  #plothist(dataset=rec.win.mid[[1]]$Dataset, datasetrand=rec.win.mid.rand[[1]]),
+  plotwin(rec.win.mid[[2]]$Dataset) + xlab(expression("Linear mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.mid[[2]]$Dataset),
+  plotweights(rec.win.mid[[2]]$Dataset),
+  #plothist(dataset=rec.win.mid[[2]]$Dataset, datasetrand=rec.win.mid.rand[[2]]),
+  plotwin(rec.win.mid[[3]]$Dataset) + xlab(expression("Linear slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.mid[[3]]$Dataset),
+  plotweights(rec.win.mid[[3]]$Dataset),
+  #plothist(dataset=rec.win.mid[[3]]$Dataset, datasetrand=rec.win.mid.rand[[3]]),
+  plotwin(rec.win.mid[[5]]$Dataset) + xlab(expression("Quadratic mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.mid[[5]]$Dataset),
+  plotweights(rec.win.mid[[5]]$Dataset),
+  #plothist(dataset=rec.win.mid[[5]]$Dataset, datasetrand=rec.win.mid.rand[[5]]),
+  plotwin(rec.win.mid[[6]]$Dataset) + xlab(expression("Quadratic mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.mid[[6]]$Dataset),
+  plotweights(rec.win.mid[[6]]$Dataset),
+  #plothist(dataset=rec.win.mid[[6]]$Dataset, datasetrand=rec.win.mid.rand[[6]]),
+  plotwin(rec.win.mid[[7]]$Dataset) + xlab(expression("Quadratic slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.mid[[7]]$Dataset),
+  plotweights(rec.win.mid[[7]]$Dataset),
+  #plothist(dataset=rec.win.mid[[7]]$Dataset, datasetrand=rec.win.mid.rand[[7]]),
+  nrow=6, ncol=3)
+mid_suppl_plot
+
+present_suppl_plot <- ggpubr::ggarrange(
+  plotwin(rec.win.present[[1]]$Dataset) + xlab(expression("Linear mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.present[[1]]$Dataset),
+  plotweights(rec.win.present[[1]]$Dataset),
+  #plothist(dataset=rec.win.present[[1]]$Dataset, datasetrand=rec.win.present.rand[[1]]),
+  plotwin(rec.win.present[[2]]$Dataset) + xlab(expression("Linear mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.present[[2]]$Dataset),
+  plotweights(rec.win.present[[2]]$Dataset),
+  #plothist(dataset=rec.win.present[[2]]$Dataset, datasetrand=rec.win.present.rand[[2]]),
+  plotwin(rec.win.present[[3]]$Dataset) + xlab(expression("Linear slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.present[[3]]$Dataset),
+  plotweights(rec.win.present[[3]]$Dataset),
+  #plothist(dataset=rec.win.present[[3]]$Dataset, datasetrand=rec.win.present.rand[[3]]),
+  plotwin(rec.win.present[[5]]$Dataset) + xlab(expression("Quadratic mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.present[[5]]$Dataset),
+  plotweights(rec.win.present[[5]]$Dataset),
+  #plothist(dataset=rec.win.present[[5]]$Dataset, datasetrand=rec.win.present.rand[[5]]),
+  plotwin(rec.win.present[[6]]$Dataset) + xlab(expression("Quadratic mean precipitation")) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.present[[6]]$Dataset),
+  plotweights(rec.win.present[[6]]$Dataset),
+  #plothist(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand[[6]]),
+  plotwin(rec.win.present[[7]]$Dataset) + xlab(expression("Quadratic slope GDD"[0])) + theme(axis.title.y = element_text(size=17)),
+  plotdelta(rec.win.present[[7]]$Dataset),
+  plotweights(rec.win.present[[7]]$Dataset),
+  #plothist(dataset=rec.win.present[[7]]$Dataset, datasetrand=rec.win.present.rand[[7]]),
+  nrow=6, ncol=3)
+present_suppl_plot
+
+ggsave("./Manuscript/PastResults_SupplPlot.png", past_suppl_plot,
+       height=20,width=20, units="in", dpi=300, scale=1)
+ggsave("./Manuscript/MidResults_SupplPlot.png", mid_suppl_plot,
+       height=20,width=20, units="in", dpi=300, scale=1)
+ggsave("./Manuscript/PresentResults_SupplPlot.png", present_suppl_plot,
+       height=20,width=20, units="in", dpi=300, scale=1)
+
+
+#P hist plots for tested relationships - Table 3
+rec.win.past$combos
+
+templab = expression(atop("Quadratic","GDD"[0]~"slope"))
+
+phistplots <- ggarrange(
+plothist(dataset=rec.win.past[[7]]$Dataset, datasetrand=rec.win.past.rand_Temp.slope.quad[[1]]) + ylab("Past (1958-1983)") + theme(axis.title.y = element_text(size=17)) + 
+  geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Quadratic","   GDD"[0]~"slope")))), hjust=0.05, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
+plothist(dataset=rec.win.past[[6]]$Dataset, datasetrand=rec.win.past.rand_Precip.mean.quad[[1]]) +
+  geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Quadratic","              Mean precipitation")))), hjust=0.27, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
+
+plothist(dataset=rec.win.mid[[3]]$Dataset, datasetrand=rec.win.mid.rand_Temp.slope.lin[[1]]) + ylab("Mid (1984-2002)") + theme(axis.title.y = element_text(size=17)) +
+  geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Linear","        GDD"[0]~"slope")))), hjust=0.22, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
+plothist(dataset=rec.win.mid[[2]]$Dataset, datasetrand=rec.win.mid.rand_Precip.mean.lin[[1]]) + 
+  geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Linear","                   Mean precipitation")))), hjust=0.35, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
+
+plothist(dataset=rec.win.present[[7]]$Dataset, datasetrand=rec.win.present.rand_Temp.slope.quad[[1]]) + ylab("Present (2003-2019)") + theme(axis.title.y = element_text(size=17)) +
+  geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Quadratic","   GDD"[0]~"slope")))), hjust=0.05, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
+plothist(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand_Precip.mean.quad[[1]]) + 
+  geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Quadratic","              Mean precipitation")))), hjust=0.27, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
+
+ncol=2, nrow=3
+)
+
+phistplots
+
+ggsave("./Manuscript/Phist_SupplPlot.png", phistplots,
+              height=15,width=15, units="in", dpi=300, scale=1)
 
 
 #Examine what happens if zoom into each window individually, do 20-80 days post spawning

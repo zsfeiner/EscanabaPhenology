@@ -3,7 +3,7 @@ library(lubridate)
 library(viridis)
 library(zoo)
 library(gamm4)
-setwd("C:/Users/feinezs/Documents/WAE Spawning Phenology")
+setwd("C:/Users/feinezs/Documents/WAE Spawning Phenology/EscanabaPhenology")
 
 #####################################################################
 ###Winter temperature breakpoint model from underice observations in Sparkling Lake, WI
@@ -60,16 +60,30 @@ wint <-
   mutate(cumAboveFreezing = cumsum(AboveFreezing), day1temp=WaterTemp[which(DaysFrozen==1)], cumTemp = cumsum(avg_air_temp),
          tendaytemp=rollapply(avg_air_temp, width=21, FUN=sum, align="right", partial=T),
          tendaywarm=rollapply(AboveFreezing, width=21, FUN=sum, align="right", partial=T))
-plot(WaterTemp ~ cumAboveFreezing, data=wint)
+par(mfrow=c(1,1))
+plot(WaterTemp ~ cumAboveFreezing, data=wint, type="l")
 plot(WaterTemp ~ cumTemp, data=wint)
 plot(WaterTemp ~ tendaytemp, data=wint)
 plot(WaterTemp ~ tendaywarm, data=wint)
 
 
+watertemppreds <- ggplot(dat=wint, aes(x=DaysFrozen, y=WaterTemp, group=IceYear)) + 
+  facet_wrap(~IceYear)+
+  geom_point() + 
+  geom_line(aes(y=predict(WT.mod$gam)), color="blue") + 
+  geom_ribbon(aes(ymax=predict(WT.mod$gam)+predict(WT.mod$gam, se=T)$se.fit*1.96,
+                  ymin=predict(WT.mod$gam)-predict(WT.mod$gam, se=T)$se.fit*1.96),
+              color=NA, alpha=0.3, fill="blue") + theme_bw() + theme(panel.border=element_rect(color="black", fill=NA)) + 
+  xlab("Days frozen") + 
+  ylab("Water temperature")
+
+ggsave("./Manuscript/SparklingWaterTempPreds.png", watertemppreds, dpi=300, width=10, height=10, units="in")
+unique(wint$IceYear)
 test <- gamm4(WaterTemp ~ s(avg_air_temp) + s(cumAboveFreezing) + s(fromThaw) + s(tendaytemp) + s(tendaywarm) + day1temp, data=wint)
 test
 summary(test$gam)
-plot(test$gam, pages=1, scheme=1)
+par(mfrow=c(3,2)); plot(test$gam, pages=1, scheme=1, residuals=T)
+hist(resid(test))
 plot(WaterTemp ~ fromThaw, data=wint, col=wint$IceYear)
 points(predict(test$gam) ~ wint$fromThaw, col=wint$IceYear, pch="-")
 plot(predict(test$gam) ~ wint$WaterTemp)
@@ -78,11 +92,15 @@ predict(test$gam)
 WT.mod <- gamm4(WaterTemp ~ s(avg_air_temp) + s(cumAboveFreezing) + s(fromThaw) + s(tendaytemp) + s(tendaywarm) + day1temp, data=wint)
 WT.mod
 summary(WT.mod$gam)
-plot(WT.mod$gam, pages=1, scheme=1)
+plot(WT.mod$gam, pages=1, scheme=1, nrow=3)
 plot(WaterTemp ~ fromThaw, data=wint, col=wint$IceYear)
 points(predict(WT.mod$gam) ~ wint$fromThaw, col=wint$IceYear, pch="-")
 plot(predict(WT.mod$gam) ~ wint$WaterTemp)
 
+Sparkling_obsvpred <- ggplot(dat=wint, aes(x=WaterTemp, y=predict(WT.mod$gam))) + 
+  geom_point() + theme_bw() + xlab("Observed water temperature") + ylab("Predicted water temperature")
+hist(resid(WT.mod$gam))
+ggsave("./Manuscript/SparklingObsvPred.png", Sparkling_obsvpred, dpi=300, width=10, height=10, units="in")
 #####################################
 #Daily water temperature in Escanaba
 library(geosphere)
@@ -168,8 +186,11 @@ pred.temps <-
                                                            tendaytemp=threeweektemp,
                                                            tendaywarm=threeweekwarm))))
 
-ggplot(pred.temps, aes(x=DOY, y=PredWaterTemp, group=iceyear, color=Year)) +
-  geom_line() + facet_wrap(~Year)
+Escanaba_WTmod <- ggplot(filter(pred.temps, MeanWaterTemp>0), aes(x=DOY, y=PredWaterTemp, group=iceyear, color=Year)) +
+  geom_line() + facet_wrap(~Year) + theme_minimal() + ylab("Predicted water temperature") + 
+  geom_point(data=filter(pred.temps, MeanWaterTemp <= 0), aes(x=DOY, y=PredWaterTemp), color="red", size=0.5, inherit.aes=F)
+ggsave("./Manuscript/Escanaba_modeledWT.png", Escanaba_WTmod, dpi=300, width=10, height=7, units="in", scale=1)
+
 
 print(pred.temps[is.na(pred.temps$MeanWaterTemp),], width=Inf)
 
