@@ -10,9 +10,9 @@
 Manuscript/
 
 # Walleye data files - request from Greg Sass, WDNR (gregory.sass@wisconsin.gov)
-AllEscanabaWAE_1946_2021.csv
-EscanabaStockRecruitPE.csv
-WAE_YOY_CompositeThrough2019.csv
+./Data/AllEscanabaWAE_1946_2021.csv
+./Data/EscanabaStockRecruitPE.csv
+./Data/WAE_YOY_CompositeThrough2019.csv
 
 # Session Data files
 /*.RData
