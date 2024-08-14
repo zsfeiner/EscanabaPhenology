@@ -3,16 +3,16 @@ library(lubridate)
 library(viridis)
 library(zoo)
 library(gamm4)
-setwd("C:/Users/feinezs/Documents/WAE Spawning Phenology/EscanabaPhenology")
+
 
 #####################################################################
 ###Winter temperature breakpoint model from underice observations in Sparkling Lake, WI
-SL.IceDays <- read_delim("SparklingLakeIceDates.txt", delim="\t")
+SL.IceDays <- read_delim("./Data/SparklingLakeIceDates.txt", delim="\t")
 SL.IceDays <- mutate_at(SL.IceDays, .vars=vars(ends_with("Date")), .funs=as.Date, format="%m/%d/%Y")
 SL.IceDays$iceyear <- SL.IceDays$iceoff_year
 
 
-wint <- read_delim("SparklingLakeWinterTemps.txt", delim="\t")  
+wint <- read_delim("./Data/SparklingLakeWinterTemps.txt", delim="\t")  
 wint$sampledate <- as.Date(wint$sampledate, format="%m/%d/%Y")  
 wint <- left_join(wint, dplyr::select(SL.IceDays, IceOnDate, IceOffDate, iceyear), by=c("IceYear"="iceyear"))
 wint$Iced <- with(wint, ifelse(sampledate >= (IceOnDate-1) & sampledate <= (IceOffDate+1), "ice","open"))
@@ -101,17 +101,19 @@ Sparkling_obsvpred <- ggplot(dat=wint, aes(x=WaterTemp, y=predict(WT.mod$gam))) 
   geom_point() + theme_bw() + xlab("Observed water temperature") + ylab("Predicted water temperature")
 hist(resid(WT.mod$gam))
 ggsave("./Manuscript/SparklingObsvPred.png", Sparkling_obsvpred, dpi=300, width=10, height=10, units="in")
+
+
 #####################################
 #Daily water temperature in Escanaba
 library(geosphere)
-temps <- read_csv("EscanabaTemps_1956_2020.csv",
+temps <- read_csv("./Data/EscanabaTemps_1956_2020.csv",
                   col_types = cols(
                     Date = col_date(format="%m/%d/%Y"),
                     Notes = col_character()))
 temps
 
 #Fill in missing air temperatures from weather station data
-precip <- read_csv("NOAA_NCDC_NorthernWIWeather_1940_2020.csv", 
+precip <- read_csv("./Data/NOAA_NCDC_NorthernWIWeather_1940_2020.csv", 
                    col_types=cols(
                      STATION = col_character(),
                      NAME = col_character(),

@@ -3,8 +3,8 @@
 .Rapp.history
 
 # Data files (for now, can add back on publication)
-*.csv
-*.txt
+# *.csv
+# *.txt
 
 # Manuscript files
 Manuscript/

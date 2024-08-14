@@ -7,7 +7,7 @@ library(ggridges)
 
 #Read in walleye spawning phenology data and summarize to daily catches
 ###Walleye data
-dat <- read.csv("AllEscanabaWAE_1946_2021.csv")
+dat <- read.csv("./Data/AllEscanabaWAE_1946_2021.csv")
 dat
 dat$Sex <- ifelse(dat$Sex %in% c(1, "Male","M"), "Male", ifelse(dat$Sex %in% c(2, "Female","F"), "Female",
                                                                 ifelse(dat$Sex %in% c(3, "Unknown","U"), "Unknown", NA)))
@@ -71,7 +71,7 @@ summary(sel.wae$DOY)
 # modGI_pois$aic
 
 
-#Fit quasi-poisson models, better fit
+#Fit quasi-poisson models, better fit - take a long time, just fit modGI for now
 #modG <- gam(Females ~ s(DOY, bs="cc", k=7) + s(fYear, bs="re"), data=sel.wae, family=quasipoisson(), method="REML", knots=list(DOY=c(-15,15)))
 
 #modGS <- gam(Females ~ s(DOY, bs="cc", k=6) + s(DOY, fYear, k=6, bs="fs", xt=list(bs="cc"),m=2) +
@@ -209,10 +209,10 @@ plot(SpawnDOY ~ as.numeric(fYear), data=esc.phen, type="b")
 
 #Predicted water temperatures for Escanaba
 
-predtemps <- read_csv("ModeledEscanabaWaterTemps_1956.2020.csv")
+predtemps <- read_csv("./Data/ModeledEscanabaWaterTemps_1956.2020.csv")
 predtemps$Date <- as.Date(predtemps$Date, format="%m/%d/%Y")
 
-usgstemps <- read_csv("Escanaba_USGS_Temperatures.csv")
+usgstemps <- read_csv("./Data/Escanaba_USGS_Temperatures.csv")
 
 
 combtemps <- left_join(usgstemps, predtemps, by=c("date"="Date"))
@@ -233,7 +233,7 @@ plot(PredWaterTemp ~ temp_0, data=filter(combtemps, month(date) %in% c(12,1,2,3)
 #Bring in environmental data
 #Now Environmental data - start with precipitation
 #Precipitation
-precip <- read_csv("NOAA_NCDC_NorthernWIWeather_1940_2020.csv", 
+precip <- read_csv("./Data/NOAA_NCDC_NorthernWIWeather_1940_2020.csv", 
                    col_types=cols(
                      STATION = col_character(),
                      NAME = col_character(),
@@ -281,7 +281,7 @@ Photo$DayLen <- daylength(Photo$Date, lat = 46.06413190)
 Photo
 
 #Water temperature (under ice modeled from Sparkling lake under ice buoy)
-temps <- read_csv(file="ModeledEscanabaWaterTemps_1956.2020.csv",
+temps <- read_csv(file="./Data/ModeledEscanabaWaterTemps_1956.2020.csv",
                   col_types=cols(
                     Date=col_date(format="%m/%d/%Y"),
                     Notes = col_character()))
@@ -300,7 +300,7 @@ format(temps$Date[1:10], "%m/%d")
 
 #Ice data
 #Ice on and off dates and water temps during them
-ice <- read_csv("Escanaba_IceDates_1956_2020.csv",
+ice <- read_csv("./Data/Escanaba_IceDates_1956_2020.csv",
                 col_types=cols(
                   IceOn=col_date(format="%m/%d/%Y"),
                   IceOff=col_date(format="%m/%d/%Y")))
@@ -309,11 +309,11 @@ ice$IceOffDOY <- as.numeric(strftime(ice$IceOff, format="%j"))
 ice
 
 #Get recruitment
-YOYPE <- read_csv("EscanabaStockRecruitPE.csv")
+YOYPE <- read_csv("./Data/EscanabaStockRecruitPE.csv")
 
 #Get recruitment sampling dates
 
-YOYdates <- read_csv("WAE_YOY_CompositeThrough2019.csv")
+YOYdates <- read_csv("./Data/WAE_YOY_CompositeThrough2019.csv")
 YOYdates <- YOYdates %>%
   filter(MWBC == 2339900) %>% mutate(Date = as.Date(DATE, format="%m/%d/%Y")) %>%
   group_by(YEAR) %>%
@@ -1088,7 +1088,7 @@ rec.win.2080.rand <- randwin(exclude = c(5,-50),
                                cmissing="method1", repeats=100)
 
 #Perform on wind on shorter timeseries - not a lot there, hold back unless someone asks for it
-wind <- read_csv("ntl17_1_v19.csv")
+wind <- read_csv("./Data/ntl17_1_v19.csv")
 wind
 colSums(is.na(wind))
 filter(wind, is.na(avg_wind_speed))
