@@ -1,13 +1,7 @@
-# History files
-.Rhistory
-.Rapp.history
-
-# Data files (for now, can add back on publication)
-# *.csv
-# *.txt
-
-# Manuscript files
-Manuscript/
+# Walleye data files - request from Greg Sass, WDNR (gregory.sass@wisconsin.gov)
+AllEscanabaWAE_1946_2021.csv
+EscanabaStockRecruitPE.csv
+WAE_YOY_CompositeThrough2019.csv
 
 # Session Data files
 /*.RData
