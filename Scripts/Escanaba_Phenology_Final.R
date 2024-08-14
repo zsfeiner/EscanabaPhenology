@@ -7,12 +7,14 @@ library(geosphere)
 library(ggridges)
 
 #Read in walleye spawning phenology data and summarize to daily catches
-###Walleye data - available upon request
+###Walleye data - available upon request, see .gitignore
 dat <- read.csv("./Data/AllEscanabaWAE_1946_2021.csv")
 dat
+
+#Recategorize sex
 dat$Sex <- ifelse(dat$Sex %in% c(1, "Male","M"), "Male", ifelse(dat$Sex %in% c(2, "Female","F"), "Female",
                                                                 ifelse(dat$Sex %in% c(3, "Unknown","U"), "Unknown", NA)))
-
+#Clean up data and convert counts to individual fish
 dat <- mutate_at(dat, .vars="Date", .funs=as.Date, format="%m/%d/%Y")
 dat <- as_tibble(dat)
 dat <- uncount(dat, Count)
@@ -21,7 +23,6 @@ dat
 #Fix lengths
 dat$Length <- ifelse(is.na(dat$Length), dat$TLbin, dat$Length)
 
-
 #Summarize catch by date
 wae <- 
   dat %>%
@@ -29,22 +30,13 @@ wae <-
   group_by(Year, DOY, Date) %>%
   summarize(Total=n(), Females=sum(Sex=="Female", na.rm=T), PropFemale=Females/Total)
 
+#Plot catches of walleye by year
 ggplot(data=wae, aes(x=DOY, y=Females, group=Year)) + 
   geom_point() + 
   facet_wrap(~Year, scales="free")
 
-wae <- wae %>%
-  group_by(Year)%>%
-  mutate(diff=abs(DOY-mean(DOY)))
-
-ggplot(data=filter(wae, diff < 15), aes(x=DOY, y=Year, group=Year, height=Females,fill=after_stat(x))) + 
-  geom_density_ridges_gradient(stat="identity", scale=6) + 
-  scale_fill_viridis_c(name="DOY", option="D") + 
-  scale_y_continuous(breaks=seq(1944,2040,4)) + theme_bw() + scale_x_continuous(breaks=seq(50,150,5))
-
-
 #Write random effects gam to predict female catch as function of scaled DOY and year
-#Pederson et al paper
+#Pederson et al 2019
 hist(wae$Females)
 
 #Filter out observations more than 15 days from the center and after 1955 (when ice records start)
@@ -81,75 +73,44 @@ summary(sel.wae$DOY)
 modGI <- gam(Females ~ s(DOY, bs="cc", k=6) + s(DOY, by=fYear, k=6,  bs="cc",m=2) +
                     s(fYear, bs="re"), data=sel.wae, family=quasipoisson(), method="REML", knots=list(DOY=c(80,150)))
 
+#Model comparison
 anova(modG, modGS, modGI)
 
+#Model explanatory power
 summary(modG) #0.567, 60.7%
 summary(modGS) #0.76, 82.4%
 summary(modGI) #(0.805, 85.2%)
 
-library(gratia)
-
-MuMIn::QAIC(modG, chat=2)
-
-#draw(modGS)
-#draw(modG)
-draw(modGI, select=1)
-draw(modGI, select=60)
-
 plot(modGI)
-
 
 #par(mfrow=c(2,2))
 #gam.check(modG)
 #gam.check(modGS)
 gam.check(modGI)
 
-#AIC(modG)
 
-
+#Create dataset for predictions
 lim.pred.data <- sel.wae %>%
   group_by(fYear) %>%
   summarize(first=min(DOY)-20, last=max(DOY)+20) %>%
   group_by(fYear) %>%
   group_modify(~ tibble(DOY = seq(.$first, .$last))) %>%
   ungroup()
+
+#plot observed vs predicted and histogram of modGI residuals
 par(mfrow=c(2,1))
 plot(sel.wae$Females , predict(modGI, type="response"), xlab="Observed female catch", ylab="Predicted female catch")
 abline(a=0, b=1)
 hist(resid(modGI), xlab="Residual", main="")
 
-#pred.data <- tibble(DOY=rep(c(80:150), 61), fYear=as.factor(rep(unique(sel.wae$fYear), each=length(80:150))))
-#pred.data
-#modG.pred <- as_tibble(predict(modG, newdata=lim.pred.data, se.fit=T, type="response"))
-#modG.pred
-
-#modGS.pred <- as_tibble(predict(modGS, newdata=lim.pred.data, type="response", se.fit=T))
-#modGS.pred
-
+#Generate model predictions
 modGI.pred <- as_tibble(predict(modGI, newdata=lim.pred.data, type="response", se.fit=T))
 modGI.pred
 
-#lim.pred.data$modGfit <- modG.pred$fit
-#lim.pred.data$modGse <- modG.pred$se.fit
-#lim.pred.data$modGSfit <- modGS.pred$fit
-#lim.pred.data$modGSse <- modGS.pred$se.fit
 lim.pred.data$modGIfit <- modGI.pred$fit
 lim.pred.data$modGIse <- modGI.pred$se.fit
 
-
-# ggplot(data=lim.pred.data, aes(x=DOY, y=modGfit, group=fYear)) + 
-#   geom_ribbon(aes(x=DOY, ymin=modGfit-modGse, ymax=modGfit+modGse, group=fYear), alpha=0.4) +
-#   geom_line(color="blue") + #ylim(c(-2,3)) +
-#   geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
-#   theme_classic() + facet_wrap(~fYear, scales="free")
-# 
-# 
-# ggplot(data=lim.pred.data, aes(x=DOY, y=modGSfit, group=fYear)) + 
-#   #geom_ribbon(aes(x=DOY, ymin=modGSfit-modGSse, ymax=modGSfit+modGSse, group=fYear), alpha=0.4) +
-#   geom_line(color="blue") + #ylim(c(-2,3)) +
-#   geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
-#   theme_classic() + facet_wrap(~fYear, scales="free")
-
+#Create predicted timeseries plot for supplemental material
 modgipredplot <- ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
   geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
   geom_line(color="blue", lwd=1) + #ylim(c(-2,3)) +
@@ -157,83 +118,14 @@ modgipredplot <- ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear))
   xlab("DOY") + ylab("Catch (# female walleye)") 
 
 modgipredplot
-summary(lim.pred.data$DOY)
 ggsave("./Manuscript/ModGIPredPlot.png", width=14, height=20, units="in", dpi=400, scale=0.75)  
-
-# #plot all predictions
-# ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
-#   geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
-#   geom_line(color="blue") + 
-#   geom_line(aes(x=DOY, y=modGfit, group=fYear), color="red") + 
-#   geom_line(aes(x=DOY, y=modGSfit, group=fYear), color="green") +
-#   theme_classic() + facet_wrap(~fYear, scales="free")
-
-
-#Quasi-poisson model GI is the best fit and provides reasonable predictions
-#Extract predictions of day with highest predicted number of spawning females
-#Generate 
-lim.pred.data
-
-esc.phen <- lim.pred.data %>%
-  group_by(fYear) %>%
-  summarize(SpawnDOY = DOY[which.max(modGIfit)])
-
-library(HDInterval)
-
-hdi.year <- tibble()
-for (i in unique(lim.pred.data$fYear)) {
-  set <- filter(lim.pred.data, fYear==i)
-  reps <- lapply(set, rep, set$modGIfit)
-  hdi.year <- bind_rows(hdi.year, HDInterval::hdi(reps$DOY,credMass=0.80))
-}
-hdi.year
-
-esc.phen <- bind_cols(esc.phen, hdi.year) %>%
-  mutate(Duration = upper-lower)
-
-esc.phen
-
-plot(Duration ~ fYear, data=esc.phen)
-plot(Duration ~ SpawnDOY, data=esc.phen)
-
-ggplot(sel.wae, aes(x=DOY, y=Females, group=fYear)) + 
-  geom_point() + 
-  geom_vline(data=esc.phen, aes(xintercept=lower, group=fYear)) + 
-  geom_vline(data=esc.phen, aes(xintercept=upper, group=fYear)) + 
-  facet_wrap(~fYear, scales='free') + 
-  geom_line(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear))
-par(mfrow=c(1,1))
-plot(SpawnDOY ~ as.numeric(fYear), data=esc.phen, type="b")
-
-########Compare predicted water temps against USGS model - does pretty well, ice season is more iffy#######
-########Test water temps from my model against USGS lake model
-
-#Predicted water temperatures for Escanaba
-
-predtemps <- read_csv("./Data/ModeledEscanabaWaterTemps_1956.2020.csv")
-predtemps$Date <- as.Date(predtemps$Date, format="%m/%d/%Y")
-
-usgstemps <- read_csv("./Data/Escanaba_USGS_Temperatures.csv")
-
-
-combtemps <- left_join(usgstemps, predtemps, by=c("date"="Date"))
-combtemps
-
-select(combtemps, date, temp_0, PredWaterTemp)
-cor(combtemps$temp_0, combtemps$PredWaterTemp)
-
-
-plot(PredWaterTemp ~ temp_0, data=filter(combtemps, month(date) %in% c(12,1,2,3)))
-
-
 
 ######
 #######Use climate windows package to predict model-predicted female catches based on environmental variables
 ######
 
-#Bring in environmental data
-#Now Environmental data - start with precipitation
-#Precipitation
+#########Bring in environmental data#############
+###Precipitation###
 precip <- read_csv("./Data/NOAA_NCDC_NorthernWIWeather_1940_2020.csv", 
                    col_types=cols(
                      STATION = col_character(),
@@ -253,17 +145,17 @@ precip <- read_csv("./Data/NOAA_NCDC_NorthernWIWeather_1940_2020.csv",
                      TSUN = col_double(),
                      WDMV = col_double()))
 
+#Generate table for sites used in analysis
 precip.sites <- precip %>%
   filter(NAME %in% c("EAGLE RIVER, WI US", "MINOCQUA, WI US", "PHELPS, WI US",
                       "RAINBOW RSVR LK TOMAHAWK, WI US", "REST LAKE, WI US")) %>%
   filter(year(DATE) > 1946) %>%
   group_by(STATION, NAME, LATITUDE, LONGITUDE) %>%
   summarize(coverage = sum(!is.na(PRCP))/n())
-
 print.data.frame(precip.sites)
 
-precip
 
+#Summarize precipitation as daily mean across all available sites
 meanprecip <-
   precip %>%
   filter(NAME %in% c("EAGLE RIVER, WI US", "MINOCQUA, WI US", "PHELPS, WI US",
@@ -273,47 +165,36 @@ meanprecip <-
             meanMaxTemp=mean(TMAX, na.rm=T), meanMinTemp=mean(TMIN, na.rm=T), meanTemp = mean(c(meanMaxTemp, meanMinTemp)), N=sum(!is.na(PRCP)), meanWind=mean(WDMV, na.rm=T))
 meanprecip
 
-#Photoperiod
-
+####Photoperiod####
+#Bring in photoperiod using geosphere package
 Photo <- data.frame(Date = seq(min(precip$DATE), as.Date("12/31/2020", format="%m/%d/%Y"), by=1), Year = NA, DOY = NA, DayLen = NA)
 Photo$Year <- year(Photo$Date)
 Photo$DOY <- as.numeric(strftime(Photo$Date, format="%j"))
 Photo$DayLen <- daylength(Photo$Date, lat = 46.06413190)
 Photo
 
-#Water temperature (under ice modeled from Sparkling lake under ice buoy)
+
+######Water temperature (under ice modeled from Sparkling lake under ice buoy, see PredictWaterTemps.R)#####
 temps <- read_csv(file="./Data/ModeledEscanabaWaterTemps_1956.2020.csv",
                   col_types=cols(
                     Date=col_date(format="%m/%d/%Y"),
                     Notes = col_character()))
 temps
 
-ggplot(filter(temps, Year %in% c(2010:2013), DOY %in% c(80:150)), 
-       aes(x=as.Date(Date), y=PredWaterTemp, group=Year)) + 
-  geom_line(lwd=1, color="blue") +  
-  facet_wrap(~Year, nrow=6, scales="free_x") + theme_classic() + 
-  theme(strip.background = element_blank(),
-        strip.text.x = element_blank(), panel.border=element_rect(fill=NA),
-        axis.text.x=element_text(angle=90)) + 
-  ylab("Water temperature") + xlab("Date")
-
-format(temps$Date[1:10], "%m/%d")
-
-#Ice data
+#####Ice data##### - Not needed
 #Ice on and off dates and water temps during them
-ice <- read_csv("./Data/Escanaba_IceDates_1956_2020.csv",
-                col_types=cols(
-                  IceOn=col_date(format="%m/%d/%Y"),
-                  IceOff=col_date(format="%m/%d/%Y")))
-ice$IceOnDOY <- as.numeric(strftime(ice$IceOn, format="%j"))
-ice$IceOffDOY <- as.numeric(strftime(ice$IceOff, format="%j"))
-ice
+#ice <- read_csv("./Data/Escanaba_IceDates_1956_2020.csv",
+#                col_types=cols(
+#                  IceOn=col_date(format="%m/%d/%Y"),
+#                  IceOff=col_date(format="%m/%d/%Y")))
+#ice$IceOnDOY <- as.numeric(strftime(ice$IceOn, format="%j"))
+#ice$IceOffDOY <- as.numeric(strftime(ice$IceOff, format="%j"))
+#ice
 
-#Get recruitment
+#Get walleye recruitment data, available on request
 YOYPE <- read_csv("./Data/EscanabaStockRecruitPE.csv")
 
-#Get recruitment sampling dates
-
+#Get recruitment sampling dates, available on request
 YOYdates <- read_csv("./Data/WAE_YOY_CompositeThrough2019.csv")
 YOYdates <- YOYdates %>%
   filter(MWBC == 2339900) %>% mutate(Date = as.Date(DATE, format="%m/%d/%Y")) %>%
@@ -322,59 +203,42 @@ YOYdates <- YOYdates %>%
 YOYdates
 
 
-
-#Climate windows analysis
+#######################################################################
+############Walleye spawning phenology analysis########################
+#######################################################################
 
 #Create GDD0
 temps$GDD0 <- ifelse(temps$PredWaterTemp > 0, temps$PredWaterTemp, 0)
 temps$GDD5 <- ifelse(temps$PredWaterTemp >= 5, temps$PredWaterTemp, 0)
 
-
-##Model predicted female walleye abundance data, scaled and centered within years
-pred.wae <- select(lim.pred.data, fYear, DOY, modGIfit) %>%
-  mutate(Date = as.Date(DOY-1, origin=paste0(fYear, "-01-01"))) %>%
-  group_by(fYear) %>%
-  mutate(PredWaeCount = round(modGIfit, 0), scPredFem = scale(modGIfit, center=F, scale=T), propFem = PredWaeCount/sum(PredWaeCount)) %>%
-  filter(fYear != 2021)
-
-ggplot(pred.wae, aes(x=DOY, y=scPredFem, group=fYear)) + 
-  geom_line()
-
-
 ##Make a gamm to see if can detect effects on catches of fish reasonably well
+#Set up environmental variables
+xvar <- inner_join(select(temps, GDD0, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
 xvar
+
 sel.wae
 
+#Join environmental variables to walleye catches and drop missing water temperature data
 env.wae <- left_join(sel.wae, xvar) %>% filter(!is.na(PredWaterTemp))
 env.wae
 
-plot(Females ~ PredWaterTemp, data=env.wae)
-plot(Females ~ meanPrecip, data=env.wae)
-plot(Females ~ Photoperiod, data=env.wae)
 
+#GAMM for effects of water temperature, photoperiod, and precipitation on female catches
 mod.fem <- gam(Females ~ s(PredWaterTemp, bs="cs", k=6) + s(Photoperiod, bs="cs") +
                  s(meanPrecip, bs='cs') + ti(Photoperiod, PredWaterTemp, bs='cs') +
                s(fYear, bs="re"), data=env.wae, family=poisson, method="REML")
-mod.fem.int <- gam(Females ~ s(meanPrecip, bs='cs') + te(Photoperiod, PredWaterTemp, bs='cs') +
-                     s(fYear, bs="re"), data=env.wae, family=quasipoisson(), method="REML")
 
-mod.fem0 <- gam(Females ~ s(PredWaterTemp, bs="cs", k=6) + s(Photoperiod, bs="cs") +
-                 s(meanPrecip, bs='cs') +
-                 s(fYear, bs="re"), data=env.wae, family=quasipoisson(), method="REML")
 summary(mod.fem)
 hist(resid(mod.fem))
 gam.check(mod.fem)
 plot(mod.fem)
-AIC(mod.fem, mod.fem0, mod.fem.int)
-anova(mod.fem, mod.fem.int, mod.fem0)
 
-summary(mod.fem)
-summary(mod.fem.int)
-summary(mod.fem0)
+#View interaction from a few different angles
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, theta=45, phi=25, color="topo", ticktype="detailed", xlab="Water temperature", zlab="Response")
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, theta=225, phi=25, color="topo", ticktype="detailed", xlab="Water temperature", zlab="Response")
 vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1, xlab="Water temperature", plot.type="contour", main="", contour.col="gray20")
 
+#Create manuscript figure 1
 png(file="./Manuscript/Figures/Fig1_GAMMResult.png", res=500, width=7, height=6, units="in", pointsize=12)
 par(mfrow=c(2,2), mai = c(0.55, 0.75, 0.1, 0.1), mgp=c(2,0.75,0))
 plot(mod.fem, scheme=1, residuals=T, select=1, cex=3, ylab="Partial effect", xlab=expression("Water temperature ("*degree*"C)"))
@@ -387,15 +251,7 @@ vis.gam(mod.fem, view=c("PredWaterTemp","Photoperiod"), type="link", too.far=0.1
 mtext(side=3, text="d)", adj=0.015, padj=2)
 dev.off()
 
-
-plot(Photoperiod ~ DOY, data=env.wae)
-plot(Females ~ DOY, data=env.wae)
-plot(Females ~ Photoperiod, data=env.wae)
-
-vis.gam(mod.fem.int, theta=120)
-plot(mod.fem.int, scheme=1, too.far=0.1)
-plot(mgcViz::getViz(mod.fem))
-
+#Create manuscript figure 2
 gampredplot <- ggplot(env.wae, aes(x=DOY, y=Females, group=fYear)) + 
   geom_point() +
   #geom_vline(data=esc.phen, aes(xintercept=lower, group=fYear)) + 
@@ -411,25 +267,21 @@ gampredplot <- ggplot(env.wae, aes(x=DOY, y=Females, group=fYear)) +
 gampredplot
 ggsave("./Manuscript/Figures/Fig2_Gam_Pred_plot.png", gampredplot, units="in", dpi=300, height=20, width=20, scale=0.8)
 
-ggplot(env.wae, aes(x=DOY, y=Females)) + 
-  geom_point() + 
-  facet_wrap(~Year, scales='free') + 
-  geom_line(aes(x=DOY, y=predict(mod.fem, type="response"))) + 
-  geom_line(aes(x=DOY, y=predict(mod.fem0, type="response")), color="blue")
 
-#Set up environmental variables
-xvar <- inner_join(select(temps, GDD0, GDD5, PredWaterTemp, Photoperiod, Date), select(meanprecip, DATE, meanPrecip), by=c("Date"="DATE"))
-xvar
+##########################################################################
+#################CLIMATE WINDOWS ANALYSIS OF RECRUITMENT##################
+##########################################################################
 
-#Predictions for recruitment
+#Predictions for recruitment - use Ricker ln(R/S)
 YOYPE
 YOYPE$lnRS <- log(YOYPE$Age0PE/YOYPE$AdultPE)
-plot(lnRS ~ AdultPE, data=YOYPE)
 
+#Create recruitment dataset
 esc.phen$Year <- as.numeric(as.character(esc.phen$fYear))
 rec.dat <- left_join(YOYPE, esc.phen, by=c("Year"="Year"))
 rec.dat
 
+#Set reference date as spawn date
 rec.dat <- rec.dat %>%
   filter(!is.na(SpawnDOY), Year < 2021) %>%
   mutate(SpawnDate = as.Date(SpawnDOY, origin=paste0((Year-1),"-12-31")))
@@ -437,9 +289,14 @@ rec.dat
 
 
 xvar
+
+#Set climwin baseline as intercept only model
 r.baseline <- lm(lnRS ~ 1, data=rec.dat)
 
-#Thermal habitat before spawning
+#Perform climwin analysis using mean and slope of temperature and precipitation
+#slidingwin automatically does all combinations of fnctions and stats, but
+#we will ignore the slope of precipitation for interpretation
+#Include all windows 120 days before spawning and 150 days after, up to 10 days in duration
 rec.win.all <- slidingwin(exclude = c(10,-150),
                                   xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
                                   cdate=xvar$Date,
@@ -451,26 +308,10 @@ rec.win.all <- slidingwin(exclude = c(10,-150),
                                   range=c(120, -150),
                                   cinterval="day",
                                   cmissing="method1")
+#Examine combos
 rec.win.all$combos
 
-rec.win.all[[1]]
-plotdelta(dataset=rec.win.all[[1]]$Dataset)
-plotweights(dataset=rec.win.all[[1]]$Dataset)
-plotweights(dataset=rec.win.all[[2]]$Dataset)
-plotweights(dataset=rec.win.all[[3]]$Dataset)
-plotweights(dataset=rec.win.all[[5]]$Dataset)
-plotweights(dataset=rec.win.all[[6]]$Dataset)
-plotweights(dataset=rec.win.all[[7]]$Dataset)
-
-
-plotbetas(dataset=rec.win.all[[1]]$Dataset)
-plotwin(dataset=rec.win.all[[1]]$Dataset)
-plotbest(dataset=rec.win.all[[1]]$Dataset,
-         bestmodel=rec.win.all[[1]]$BestModel,
-         bestmodeldata=rec.win.all[[1]]$BestModelData)
-
-
-#Randomize all data
+#Randomize all data for calculation of PdAICc
 rec.win.all.rand <- randwin(exclude = c(10,-150),
                              xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
                              cdate=xvar$Date,
@@ -482,27 +323,13 @@ rec.win.all.rand <- randwin(exclude = c(10,-150),
                              range=c(120, -150),
                              cinterval="day",
                              cmissing="method1", repeats=100)
+
+#Print p values and plot histograms
 for (i in c(1,2,3,5,6,7)) {
 print(pvalue(dataset=rec.win.all[[i]]$Dataset, datasetrand=rec.win.all.rand[[i]],
        metric='AIC', sample.size=55))
   plothist(dataset=rec.win.all[[i]]$Dataset, datasetrand=rec.win.all.rand[[i]])  
 }
-
-rec.win.all$combos
-plothist(dataset=rec.win.all[[1]]$Dataset, datasetrand=rec.win.all.rand[[1]])
-plothist(dataset=rec.win.all[[2]]$Dataset, datasetrand=rec.win.all.rand[[2]])
-plothist(dataset=rec.win.all[[3]]$Dataset, datasetrand=rec.win.all.rand[[3]])
-plothist(dataset=rec.win.all[[5]]$Dataset, datasetrand=rec.win.all.rand[[5]])
-plothist(dataset=rec.win.all[[6]]$Dataset, datasetrand=rec.win.all.rand[[6]])
-plothist(dataset=rec.win.all[[7]]$Dataset, datasetrand=rec.win.all.rand[[7]])
-
-
-plotbest(dataset=rec.win.all[[7]]$Dataset, bestmodel=rec.win.all[[7]]$BestModel,
-         bestmodeldata=rec.win.all[[7]]$BestModelData)
-plotwin(dataset=rec.win.all[[7]]$Dataset)
-plotdelta(dataset=rec.win.all[[1]]$Dataset)
-plotweights(dataset=rec.win.all[[7]]$Dataset)
-plotbetas(dataset=rec.win.all[[7]]$Dataset)
 
 #Make giant figure for all outputs of full timeseries model
 library(ggpubr)
@@ -539,14 +366,15 @@ ggsave("./Manuscript/AllTimeResults_SupplPlot.png", alltime_suppl_plot,
        height=20,width=20, units="in", dpi=300, scale=1)
 
 
-#Do three year groups in 17-19 yr clusters
+#Do three year groups in 17-19 yr clusters to test for non-stationarity in climate windows
 rec.dat <- rec.dat %>%
   mutate(period = ifelse(Year %in% c(1958:1983), "past",ifelse(Year %in% c(1984:2002), "mid", "present")))
 
+#Show different periods
 ggplot(rec.dat, aes(x=Year, y=lnRS, color=period)) + 
   geom_point()
 
-
+#Perform climwin on past data following other methods from above
 pastbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="past"))
 rec.win.past <- slidingwin(exclude = c(10,-150),
                             xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
@@ -560,6 +388,7 @@ rec.win.past <- slidingwin(exclude = c(10,-150),
                             cinterval="day",
                             cmissing="method1")
 
+#Perform climwin on mid data following other methods from above
 midbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="mid"))
 rec.win.mid <- slidingwin(exclude = c(10,-150),
                            xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
@@ -573,6 +402,7 @@ rec.win.mid <- slidingwin(exclude = c(10,-150),
                            cinterval="day",
                            cmissing="method1")
 
+#Perform climwin on late (present) data following other methods from above
 presentbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="present"))
 rec.win.present <- slidingwin(exclude = c(10,-150),
                            xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
@@ -586,6 +416,7 @@ rec.win.present <- slidingwin(exclude = c(10,-150),
                            cinterval="day",
                            cmissing="method1")
 
+#Examine model combinations and outputs
 rec.win.past$combos
 rec.win.mid$combos
 rec.win.present$combos
@@ -612,40 +443,18 @@ plotweights(dataset=rec.win.present[[6]]$Dataset) #precip mean quad
 plotweights(dataset=rec.win.present[[7]]$Dataset) #temp slope quad
 
 
+#Computationally the randomization process takes 10s of hours
+#Just perform randomization on best performing window, statistic, and function for each variables
+#Only consider mean precipitation, but consider mean and slope of GDD0
 
-plotdelta(dataset=rec.win.past[[1]]$Dataset)
-plotdelta(dataset=rec.win.mid[[1]]$Dataset)
-plotdelta(dataset=rec.win.present[[1]]$Dataset)
+rec.win.past$combos
 
-plotdelta(dataset=rec.win.past[[2]]$Dataset)
-plotdelta(dataset=rec.win.mid[[2]]$Dataset)
-plotdelta(dataset=rec.win.present[[2]]$Dataset)
+#Use rec.win.past[[6]] which is quadratic mean precip
+#Use rec.win.past[[7]] which is quadratic slope GDD0
 
-plotdelta(dataset=rec.win.past[[3]]$Dataset)
-plotdelta(dataset=rec.win.mid[[3]]$Dataset)
-plotdelta(dataset=rec.win.present[[3]]$Dataset)
-
-plotdelta(dataset=rec.win.past[[4]]$Dataset)
-plotdelta(dataset=rec.win.mid[[4]]$Dataset)
-plotdelta(dataset=rec.win.present[[4]]$Dataset)
-
-plotbest(dataset=rec.win.past[[4]]$Dataset,
-         bestmodel=rec.win.past[[4]]$BestModel,
-         bestmodeldata=rec.win.past[[4]]$BestModelData)
-plotbest(dataset=rec.win.mid[[4]]$Dataset,
-         bestmodel=rec.win.mid[[4]]$BestModel,
-         bestmodeldata=rec.win.mid[[4]]$BestModelData)
-plotbest(dataset=rec.win.present[[4]]$Dataset,
-         bestmodel=rec.win.present[[4]]$BestModel,
-         bestmodeldata=rec.win.present[[4]]$BestModelData)
-rec.win.past[[1]]
-rec.win.mid[[1]]
-rec.win.present[[1]]
-
-#This may take too long, just do the best performing for each variable
 pastbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="past"))
 
-#only use mean precip, but include slope of temp if better
+#Assess quadratic mean precip - not significant
 plotdelta(rec.win.past[[6]]$Dataset)
 plotweights(rec.win.past[[6]]$Dataset)
 plotwin(rec.win.past[[6]]$Dataset)
@@ -666,6 +475,8 @@ rec.win.past.rand_Precip.mean.quad <- randwin(exclude = c(10,-150),
 pvalue(dataset=rec.win.past[[6]]$Dataset, datasetrand=rec.win.past.rand_Precip.mean.quad[[1]],
        metric='AIC', sample.size=19)
 
+
+#Assess quadratic slope GDD0 - not significant
 rec.win.past$combos
 plotdelta(rec.win.past[[7]]$Dataset)
 plotbest(dataset=rec.win.past[[7]]$Dataset,
@@ -685,18 +496,13 @@ rec.win.past.rand_Temp.slope.quad <- randwin(exclude = c(10,-150),
 pvalue(dataset=rec.win.past[[7]]$Dataset, datasetrand=rec.win.past.rand_Temp.slope.quad[[1]],
        metric='AIC', sample.size=19)
 
-# rec.win.past.rand <- randwin(exclude = c(10,-150),
-#                            xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-#                            cdate=xvar$Date,
-#                            bdate=filter(rec.dat, period=="past")$SpawnDate,
-#                            baseline=pastbaseline,
-#                            type="relative",
-#                            stat=c("mean","slope"),
-#                            func=c("lin", "quad"),
-#                            range=c(120, -150),
-#                            cinterval="day",
-#                            cmissing="method1", repeats=100)
 
+#Repeat for mid
+rec.win.mid$combos
+#Use rec.win.mid[[2]] which is linear mean precip
+#Use rec.win.mid[[3]] which is linear slope GDD0
+
+##Assess linear mean precip - not significant
 midbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="mid"))
 plotdelta(rec.win.mid[[2]]$Dataset)
 plotbest(dataset=rec.win.mid[[2]]$Dataset,
@@ -716,6 +522,7 @@ rec.win.mid.rand_Precip.mean.lin <- randwin(exclude = c(10,-150),
 pvalue(dataset=rec.win.mid[[2]]$Dataset, datasetrand=rec.win.mid.rand_Precip.mean.lin[[1]],
        metric='AIC', sample.size=19)
 
+#Assess linear slope GDD0 - not significant
 plotdelta(rec.win.mid[[3]]$Dataset)
 plotbest(dataset=rec.win.mid[[3]]$Dataset,
          bestmodel=rec.win.mid[[3]]$BestModel,
@@ -734,18 +541,12 @@ rec.win.mid.rand_Temp.slope.lin <- randwin(exclude = c(10,-150),
 pvalue(dataset=rec.win.mid[[3]]$Dataset, datasetrand=rec.win.mid.rand_Temp.slope.lin[[1]],
        metric='AIC', sample.size=19)
 
-# rec.win.mid.rand <- randwin(exclude = c(10,-150),
-#                           xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-#                           cdate=xvar$Date,
-#                           bdate=filter(rec.dat, period=="mid")$SpawnDate,
-#                           baseline=midbaseline,
-#                           type="relative",
-#                           stat=c("mean","slope"),
-#                           func=c("lin", "quad"),
-#                           range=c(120, -150),
-#                           cinterval="day",
-#                           cmissing="method1", repeats=100)
+#Repeat for present
+rec.win.present$combos
+#Use rec.win.present[[6]] which is quadratic mean precip
+#Use rec.win.present[[7]] which is quadratic slope GDD0
 
+#Assess quadratic mean precip - significant, P<0.001
 presentbaseline <- lm(lnRS ~ 1, data=filter(rec.dat, period=="present"))
 plotdelta(rec.win.present[[6]]$Dataset)
 plotwin(rec.win.present[[6]]$Dataset)
@@ -767,6 +568,7 @@ rec.win.present.rand_Precip.mean.quad <- randwin(exclude = c(10,-150),
 pvalue(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand_Precip.mean.quad[[1]],
        metric='AIC', sample.size=17)
 
+#Assess quadratic slope GDD0 - not significant
 plotdelta(rec.win.present[[7]]$Dataset)
 plotbest(dataset=rec.win.mid[[7]]$Dataset,
          bestmodel=rec.win.mid[[7]]$BestModel,
@@ -784,72 +586,26 @@ rec.win.present.rand_Temp.slope.quad <- randwin(exclude = c(10,-150),
                                 cmissing="method1", repeats=100)
 pvalue(dataset=rec.win.present[[7]]$Dataset, datasetrand=rec.win.present.rand_Temp.slope.quad[[1]],
        metric='AIC', sample.size=17)
-# rec.win.present.rand <- randwin(exclude = c(10,-150),
-#                               xvar=list(GDD0=xvar$GDD0, Precip=xvar$meanPrecip),
-#                               cdate=xvar$Date,
-#                               bdate=filter(rec.dat, period=="present")$SpawnDate,
-#                               baseline=presentbaseline,
-#                               type="relative",
-#                               stat=c("mean","slope"),
-#                               func=c("lin", "quad"),
-#                               range=c(120, -150),
-#                               cinterval="day",
-#                               cmissing="method1", repeats=100)
 
-#Past
-nrow(filter(rec.dat, period=="present"))
-pvalue(dataset=rec.win.past[[1]]$Dataset, datasetrand=rec.win.past.rand[[1]],
-       metric='AIC', sample.size=19)
-pvalue(dataset=rec.win.past[[2]]$Dataset, datasetrand=rec.win.past.rand[[2]],
-       metric='AIC', sample.size=19)
-pvalue(dataset=rec.win.past[[3]]$Dataset, datasetrand=rec.win.past.rand[[3]],
-       metric='AIC', sample.size=19)
-pvalue(dataset=rec.win.past[[4]]$Dataset, datasetrand=rec.win.past.rand[[4]],
-       metric='AIC', sample.size=19)
-plothist(dataset=rec.win.past[[1]]$Dataset, datasetrand=rec.win.past.rand[[1]])
-plothist(dataset=rec.win.past[[4]]$Dataset, datasetrand=rec.win.past.rand[[4]])
-
-#mid
-pvalue(dataset=rec.win.mid[[1]]$Dataset, datasetrand=rec.win.mid.rand[[1]],
-       metric='AIC', sample.size=19)
-pvalue(dataset=rec.win.mid[[2]]$Dataset, datasetrand=rec.win.mid.rand[[2]],
-       metric='AIC', sample.size=19)
-pvalue(dataset=rec.win.mid[[3]]$Dataset, datasetrand=rec.win.mid.rand[[3]],
-       metric='AIC', sample.size=19)
-pvalue(dataset=rec.win.mid[[4]]$Dataset, datasetrand=rec.win.mid.rand[[4]],
-       metric='AIC', sample.size=19)
-plothist(dataset=rec.win.mid[[1]]$Dataset, datasetrand=rec.win.mid.rand[[1]])
-
-#present
-pvalue(dataset=rec.win.present[[1]]$Dataset, datasetrand=rec.win.present.rand[[1]],
-       metric='AIC', sample.size=17)
-pvalue(dataset=rec.win.present[[2]]$Dataset, datasetrand=rec.win.present.rand[[2]],
-       metric='AIC', sample.size=17)
-pvalue(dataset=rec.win.present[[3]]$Dataset, datasetrand=rec.win.present.rand[[3]],
-       metric='AIC', sample.size=17)
-pvalue(dataset=rec.win.present[[4]]$Dataset, datasetrand=rec.win.present.rand[[4]],
-       metric='C', sample.size=17)
-plothist(dataset=rec.win.present[[6]]$Dataset, datasetrand=rec.win.present.rand_Precip.mean.quad[[1]])
-
-plotbest(dataset=rec.win.past[[4]]$Dataset,
-         bestmodel=rec.win.past[[4]]$BestModel,
-         bestmodeldata=rec.win.past[[4]]$BestModelData)
-plotbest(dataset=rec.win.mid[[4]]$Dataset,
-         bestmodel=rec.win.mid[[4]]$BestModel,
-         bestmodeldata=rec.win.mid[[4]]$BestModelData)
-
+#Further evaluate rec.win.present[[6]] effect of mean precip in late time period
 plotweights(rec.win.present[[6]]$Dataset)
+
+#Pull out model fits
 presdat <- rec.win.present[[6]]$Dataset
+
+#12 models comprise 95% AICc weight set
 cumsum(presdat$ModWeight)
 presdatset <- presdat[1:12,]
 presdatset
+
+#Model averaged coefficients and median climate window open and close
 weighted.mean(presdatset$ModelBeta, w=presdatset$ModWeight)
 weighted.mean(presdatset$ModelBetaQ, w=presdatset$ModWeight)
 weighted.mean(presdatset$ModelInt, w=presdatset$ModWeight)
 median(presdatset$WindowOpen)
 median(presdatset$WindowClose)
 
-
+#Create manuscript Figure 3 - results of rec.win.present[[6]]
 deltaplot <- plotdelta(rec.win.present[[6]]$Dataset)
 windowplot <- plotwin(dataset=rec.win.present[[6]]$Dataset) + 
   ggtitle(paste("Climate window range for", (0.95 * 100), "% confidence set"))
@@ -882,8 +638,6 @@ bestmodplot <- ggplot(bestdat, aes(x=climate, y=yvar)) +
        y = "ln(R/S)") +
   theme_climwin() 
 
-
-
 library(ggpubr)
 
 fig3 <- ggarrange(deltaplot, windowplot, histplot, bestmodplot, labels=c("a)", "b)","c)","d)"), nrow=2, ncol=2)
@@ -891,42 +645,8 @@ fig3
 ggsave("./Manuscript/Figures/Fig3_RecentPrecipResult.png", fig3, dpi=500, units="in", width=7, height=6, scale=1.5)
 
 
-plotdelta(rec.win.present[[6]]$Dataset)
-plotwin(rec.win.present[[6]]$Dataset)
-rec.win.past$combos
-rec.win.mid$combos
-rec.win.present$combos
 
-
-cumsum(rec.win.present[[6]]$Dataset$ModWeight)
-
-plotwin(rec.win.past[[1]]$Dataset)
-plotwin(rec.win.past[[2]]$Dataset)
-plotwin(rec.win.past[[3]]$Dataset)
-plotwin(rec.win.past[[4]]$Dataset)
-
-plotwin(rec.win.mid[[1]]$Dataset)
-plotwin(rec.win.mid[[2]]$Dataset)
-plotwin(rec.win.mid[[3]]$Dataset)
-plotwin(rec.win.mid[[4]]$Dataset)
-
-plotwin(rec.win.present[[1]]$Dataset)
-plotwin(rec.win.present[[2]]$Dataset)
-plotwin(rec.win.present[[3]]$Dataset)
-plotwin(rec.win.present[[6]]$Dataset)
-
-xvar
-plot(meanPrecip ~ Date, xvar)
-
-rec.win.before$combos
-plotwin(filter(rec.win.before[[1]]$Dataset, deltaAICc <= -2), cw=1)
-ggplot(data=filter(rec.win.before[[1]]$Dataset, deltaAICc <= -2) %>%
-         select(WindowOpen, WindowClose) %>%
-         pivot_longer(cols=c(WindowOpen,WindowClose)), aes(x=value, y=name)) + 
-  geom_boxplot
-
-
-#Supplemental figures
+##########################CREATE SUPPLEMENTAL FIGURES#########################
 past_suppl_plot <- ggpubr::ggarrange(
   plotwin(rec.win.past[[1]]$Dataset) + xlab(expression("Linear mean GDD"[0])) + theme(axis.title.y = element_text(size=17)),
   plotdelta(rec.win.past[[1]]$Dataset),
@@ -1021,8 +741,6 @@ ggsave("./Manuscript/PresentResults_SupplPlot.png", present_suppl_plot,
 #P hist plots for tested relationships - Table 3
 rec.win.past$combos
 
-templab = expression(atop("Quadratic","GDD"[0]~"slope"))
-
 phistplots <- ggarrange(
 plothist(dataset=rec.win.past[[7]]$Dataset, datasetrand=rec.win.past.rand_Temp.slope.quad[[1]]) + ylab("Past (1958-1983)") + theme(axis.title.y = element_text(size=17)) + 
   geom_text(aes(x=-Inf,y=Inf,label=as.character(expression(atop("Quadratic","   GDD"[0]~"slope")))), hjust=0.05, vjust=1.2, fontface="plain", size=8, inherit.aes=F, parse=T),
@@ -1047,153 +765,4 @@ phistplots
 ggsave("./Manuscript/Phist_SupplPlot.png", phistplots,
               height=15,width=15, units="in", dpi=300, scale=1)
 
-
-#Examine what happens if zoom into each window individually, do 20-80 days post spawning
-#Doesn't matter, still not significant
-rec.win.2080 <- slidingwin(exclude = c(5,-50),
-                             xvar=list(GDD0=xvar$meanPrecip),
-                             cdate=xvar$Date,
-                             bdate=rec.dat$SpawnDate,
-                             baseline=r.baseline,
-                             type="relative",
-                             stat=c("mean","slope"),
-                             func=c("lin"),
-                             range=c(-20, -80),
-                             cinterval="day",
-                             cmissing="method1")
-rec.win.2080$combos
-
-rec.win.2080[[1]]
-pvalue(dataset=rec.win.2080[[1]]$Dataset, datasetrand=rec.win.2080.rand[[1]],
-       metric='AIC', sample.size=55)
-plothist(dataset=rec.win.2080[[1]]$Dataset, datasetrand=rec.win.2080.rand[[1]])
-plotdelta(dataset=rec.win.2080[[2]]$Dataset)
-plotweights(dataset=rec.win.2080[[1]]$Dataset)
-plotbetas(dataset=rec.win.2080[[1]]$Dataset)
-plotwin(dataset=rec.win.2080[[1]]$Dataset)
-plotbest(dataset=rec.win.2080[[2]]$Dataset,
-         bestmodel=rec.win.2080[[2]]$BestModel,
-         bestmodeldata=rec.win.2080[[2]]$BestModelData)
-
-#Randomize all data
-rec.win.2080.rand <- randwin(exclude = c(5,-50),
-                               xvar=list(GDD0=xvar$GDD0),
-                               cdate=xvar$Date,
-                               bdate=rec.dat$SpawnDate,
-                               baseline=r.baseline,
-                               type="relative",
-                               stat=c("mean"),
-                               func=c("lin"),
-                               range=c(-20, -80),
-                               cinterval="day",
-                               cmissing="method1", repeats=100)
-
-#Perform on wind on shorter timeseries - not a lot there, hold back unless someone asks for it
-wind <- read_csv("./Data/ntl17_1_v19.csv")
-wind
-colSums(is.na(wind))
-filter(wind, is.na(avg_wind_speed))
-plot(is.na(avg_wind_speed) ~ sampledate, wind)
-
-wind.xvar <- left_join(xvar, select(wind, sampledate, avg_wind_speed), by=c("Date"="sampledate")) %>%
-  filter(!is.na(avg_wind_speed))
-wind.xvar
-
-wind.base <- lm(lnRS ~ 1, data=filter(rec.dat, Year > 1989))
-
-rec.wind <- slidingwin(exclude = c(10,-150),
-                              xvar=list(wind=wind.xvar$avg_wind_speed),
-                              cdate=wind.xvar$Date,
-                              bdate=filter(rec.dat, Year > 1989)$SpawnDate,
-                              baseline=wind.base,
-                              type="relative",
-                              stat=c("mean","slope"),
-                              func=c("lin", "quad"),
-                              range=c(120, -150),
-                              cinterval="day",
-                              cmissing="method2")
-rec.wind$combos
-pvalue(dataset=rec.wind[[1]]$Dataset, datasetrand=rec.wind.rand[[1]],
-       metric='AIC', sample.size=55)
-plothist(dataset=rec.wind[[1]]$Dataset, datasetrand=rec.wind.rand[[1]])
-plotdelta(dataset=rec.wind[[4]]$Dataset)
-plotweights(dataset=rec.wind[[1]]$Dataset)
-plotbetas(dataset=rec.wind[[1]]$Dataset)
-plotwin(dataset=rec.wind[[1]]$Dataset)
-plotbest(dataset=rec.wind[[1]]$Dataset,
-         bestmodel=rec.wind[[1]]$BestModel,
-         bestmodeldata=rec.wind[[1]]$BestModelData)
-
-
-#Calculate precip variable over time to determine changes?
-#Also calculate max, mean, CV within that window
-meanprecip
-rec.dat
-
-meanprecip$Year <- year(meanprecip$DATE)
-newprecip <- left_join(meanprecip, select(rec.dat, Year, SpawnDOY)) %>%
-  filter(!is.na(SpawnDOY)) %>%
-  mutate(PrecipDOY = as.numeric(strftime(DATE, format="%j")),
-         diff = SpawnDOY - PrecipDOY) %>%
-  filter(between(diff, -13,-6))
-newprecip
-
-newprecip2 <- newprecip %>%
-  group_by(Year) %>%
-  summarize(mean=mean(meanPrecip), max=max(meanPrecip), min=min(meanPrecip), CV = sd(meanPrecip)/mean(meanPrecip)) %>%
-  mutate(period = ifelse(Year < 1984, "Past", ifelse(Year > 2001, "Present", "Mid"))) %>%
-  group_by(period) %>%
-  mutate(mean.mean = mean(mean), mean.max=mean(max), mean.CV=mean(CV, na.rm=T))
-
-newprecip2
-
-ggplot(newprecip2, aes(y=mean, x=Year, group=period, color=period)) + 
-  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") + 
-  geom_line(aes(y = mean.mean, color=period, group=period))
-
-ggplot(newprecip2, aes(y=max, x=Year)) + 
-  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") + 
-  geom_line(aes(y = mean.max, color=period, group=period))
-ggplot(newprecip2, aes(y=CV, x=Year)) + 
-  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") +
-  geom_line(aes(y = mean.CV, color=period, group=period))
-
-#Repeat for temp
-temps
-rec.dat
-
-newtemps <- left_join(temps, select(rec.dat, Year, SpawnDOY)) %>%
-  filter(!is.na(SpawnDOY)) %>%
-  mutate(TempDOY = as.numeric(strftime(Date, format="%j")),
-         diff = SpawnDOY - TempDOY) %>%
-  filter(between(diff, -13,-6))
-newtemps
-
-newtemps2 <- newtemps %>%
-  group_by(Year) %>%
-  summarize(mean=mean(PredWaterTemp), CV = sd(PredWaterTemp)/mean(PredWaterTemp)) %>%
-  mutate(period = ifelse(Year < 1984, "Past", ifelse(Year > 2001, "Present", "Mid"))) %>%
-  group_by(period) %>%
-  mutate(mean.mean = mean(mean), mean.CV=mean(CV, na.rm=T))
-
-newtemps2
-
-ggplot(newtemps2, aes(y=mean, x=Year, group=period, color=period)) + 
-  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") + 
-  geom_line(aes(y = mean.mean, color=period, group=period))
-
-ggplot(newprecip2, aes(y=CV, x=Year)) + 
-  geom_line() + geom_point() + geom_vline(xintercept=c(1983,2002), color="red") +
-  geom_line(aes(y = mean.CV, color=period, group=period))
-
-
-#Look at lake level
-ll <- read.table("clipboard", header=T)
-ll
-
-ll.mean <- aggregate(llevel_elevation ~ lakeid + year4, data=ll, FUN=mean)
-ggplot(ll.mean, aes(y=llevel_elevation, x=year4, group=lakeid)) + 
-  geom_line(aes(color=lakeid)) + geom_vline(xintercept=c(1983,2002), color="red")
-
-
-
+##END
