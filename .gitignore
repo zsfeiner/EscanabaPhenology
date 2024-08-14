@@ -9,6 +9,11 @@
 # Manuscript files
 Manuscript/
 
+# Walleye data files - request from Greg Sass, WDNR (gregory.sass@wisconsin.gov)
+AllEscanabaWAE_1946_2021.csv
+EscanabaStockRecruitPE.csv
+WAE_YOY_CompositeThrough2019.csv
+
 # Session Data files
 /*.RData
 
@@ -17,8 +22,6 @@ Manuscript/
 
 # Example code in package build process
 *-Ex.R
-Escanaba_PredictPhenology_4.1.2021.R
-Escanaba_PredictPhenology_6.16.2021.R
 
 # Output files from R CMD build
 /*.tar.gz
