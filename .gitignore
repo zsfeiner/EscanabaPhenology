@@ -9,7 +9,7 @@
 # Manuscript files
 Manuscript/
 
-# Data files
+# Data files - remove walleye data, request from Greg Sass, WDNR (gregory.sass@wisconsin.gov)
 Data/AllEscanabaWAE_1946_2021.csv
 Data/EscanabaStockRecruitPE.csv
 Data/WAE_YOY_CompositeThrough2019.csv
