@@ -1,3 +1,4 @@
+#load libraries
 library(tidyverse)
 library(climwin)
 library(lubridate)
@@ -6,7 +7,7 @@ library(geosphere)
 library(ggridges)
 
 #Read in walleye spawning phenology data and summarize to daily catches
-###Walleye data
+###Walleye data - available upon request
 dat <- read.csv("./Data/AllEscanabaWAE_1946_2021.csv")
 dat
 dat$Sex <- ifelse(dat$Sex %in% c(1, "Male","M"), "Male", ifelse(dat$Sex %in% c(2, "Female","F"), "Female",
