@@ -1,3 +1,8 @@
+#Climate window modeling of walleye spawning and recruitment for Feiner et al., in review, CJFAS
+#Last edited by Z.S. Feiner, 8/14/2024
+
+#----------------------------------------------------------------------------
+
 #load libraries
 library(tidyverse)
 library(climwin)
