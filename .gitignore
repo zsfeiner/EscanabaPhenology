@@ -10,8 +10,9 @@
 Manuscript/
 
 # Data files
-~/WAE Spawning Phenology/EscanabaPhenology/Data/AllEscanabaWAE_1946_2021.csv
-
+Data/AllEscanabaWAE_1946_2021.csv
+Data/EscanabaStockRecruitPE.csv
+Data/WAE_YOY_CompositeThrough2019.csv
 
 # Session Data files
 /*.RData
