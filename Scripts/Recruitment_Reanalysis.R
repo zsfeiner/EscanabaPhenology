@@ -260,6 +260,7 @@ hist(resid(mod.fem))
 gam.check(mod.fem)
 plot(mod.fem)
 
+#Check correlation of water temperature and photoperiod
 cor.test(env.wae$PredWaterTemp, env.wae$Photoperiod)
 
 
@@ -298,44 +299,12 @@ gampredplot <- ggplot(env.wae, aes(x=DOY, y=Females, group=fYear)) +
 gampredplot
 ggsave("./Manuscript/CJFAS Submission/Revisions/Fig2_Gam_Pred_plot.png", gampredplot, units="in", dpi=300, height=20, width=20, scale=0.8)
 
-#####
-#####Evaluate predictions of GAMM vs HGAM - Can I just use the HGAM?
-
-xvar.pred <- xvar %>%
-  mutate(Month = month(Date), fYear = factor(year(Date))) %>%
-  mutate(DOY = as.numeric(strftime(Date, format="%j"))) %>%
-  left_join(lim.pred.data, .) %>%
-  filter(Photoperiod > min(env.wae$Photoperiod) & Photoperiod < max(env.wae$Photoperiod), 
-        PredWaterTemp > min(env.wae$PredWaterTemp) & PredWaterTemp < max(env.wae$PredWaterTemp),
-        Month %in% c(3:5))
-
-xvar.pred
-xvar.pred <- xvar.pred %>%
-  mutate(predWAE = predict(mod.fem, type="response", 
-                           newdata = select(., PredWaterTemp, Photoperiod, meanPrecip, fYear, DOY)))
-  
-xvar.pred
-
-ggplot(filter(xvar.pred, !(predWAE>100 & DOY < 95)), aes(x=DOY, y=predWAE, group=fYear)) + 
-  geom_line(lwd=2) + facet_wrap(~fYear, scales="free") + 
-  geom_point(data=env.wae, aes(x=DOY, y=Females, group=fYear), color="red", inherit.aes=F) +
-  geom_line(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear), color="blue", lwd=1)
-  #geom_line(data=env.wae, aes(x=DOY, y=predict(mod.fem, type="response")), color="blue", inherit.aes=F, lwd=1) + 
-
-modgipredplot <- ggplot(data=lim.pred.data, aes(x=DOY, y=modGIfit, group=fYear)) + 
-  geom_point(data=sel.wae, aes(x=DOY, y=Females, group=fYear), color="black", inherit.aes=F) + 
-  geom_line(color="blue", lwd=1) + #ylim(c(-2,3)) +
-  theme(base_size=20) + theme_bw() + facet_wrap(~fYear, scales="free_y", ncol=4) + 
-  xlab("DOY") + ylab("Catch (# female walleye)") 
-
-#Does OK
-
 
 ##########################################################################
 #################CLIMATE WINDOWS ANALYSIS OF RECRUITMENT##################
 ##########################################################################
 
-##Bring in new PEs and CVs - calculate them here
+##Bring in age0 PEs and CVs, available on request - calculate them here
 newPE_raw <- read_csv(file = "Data/EscanabaAge0PE_raw.csv")
 newPE <- 
 newPE_raw %>%
@@ -350,6 +319,7 @@ newPE_raw %>%
 
 print(newPE, n=Inf)
 
+#Plot timeseries of PEs
 ggplot(newPE, aes(x=Year, y=PE)) + 
   geom_point() + geom_line() +
   geom_errorbar(aes(x=Year, ymax=PE+PE.sd, ymin=PE-PE.sd))
@@ -380,6 +350,8 @@ rec.dat <- rec.dat %>%
   mutate(SpawnDate = as.Date(SpawnDOY, origin=paste0((Year-1),"-12-31")))
 rec.dat
 rec.dat <- rename(rec.dat, "Age0PE" = "PE")
+
+#Weight by CV
 rec.dat$weights <- 1/rec.dat$CV
 xvar
 
@@ -437,91 +409,90 @@ for (i in c(1,2,3,5,6,7)) {
 }
 
 
-#For diagram, just fit a window 20-40 days post spawning
-
-diag.mean.lin <- singlewin(xvar=list(GDD0=xvar$GDD0),
-                      cdate=xvar$Date,
-                      bdate=rec.dat$SpawnDate,
-                      baseline=r.baseline,
-                      type="relative",
-                      stat=c("mean"),
-                      func=c("lin"),
-                      range=c(40, 20),
-                      cinterval="day",
-                      cmissing="method1")
-
-
-diag.mean.quad <- singlewin(xvar=list(GDD0=xvar$GDD0),
-                           cdate=xvar$Date,
-                           bdate=rec.dat$SpawnDate,
-                           baseline=r.baseline,
-                           type="relative",
-                           stat=c("mean"),
-                           func=c("quad"),
-                           range=c(40, 20),
-                           cinterval="day",
-                           cmissing="method1")
-
-diag.slope.lin <- singlewin(xvar=list(GDD0=xvar$GDD0),
-                           cdate=xvar$Date,
-                           bdate=rec.dat$SpawnDate,
-                           baseline=r.baseline,
-                           type="relative",
-                           stat=c("slope"),
-                           func=c("lin"),
-                           range=c(40, 20),
-                           cinterval="day",
-                           cmissing="method1")
-
-diag.slope.quad <- singlewin(xvar=list(GDD0=xvar$GDD0),
-                           cdate=xvar$Date,
-                           bdate=rec.dat$SpawnDate,
-                           baseline=r.baseline,
-                           type="relative",
-                           stat=c("slope"),
-                           func=c("quad"),
-                           range=c(40, 20),
-                           cinterval="day",
-                           cmissing="method1")
-
-diag.precip.mean.lin <- singlewin(xvar=list(Precip=xvar$meanPrecip),
-                           cdate=xvar$Date,
-                           bdate=rec.dat$SpawnDate,
-                           baseline=r.baseline,
-                           type="relative",
-                           stat=c("mean"),
-                           func=c("lin"),
-                           range=c(40, 20),
-                           cinterval="day",
-                           cmissing="method1")
-
-
-diag.precip.mean.quad <- singlewin(xvar=list(Precip=xvar$meanPrecip),
-                            cdate=xvar$Date,
-                            bdate=rec.dat$SpawnDate,
-                            baseline=r.baseline,
-                            type="relative",
-                            stat=c("mean"),
-                            func=c("quad"),
-                            range=c(40, 20),
-                            cinterval="day",
-                            cmissing="method1")
-
-
-
-plotbest(diag.mean.lin$Dataset, diag.mean.lin$BestModel, diag.mean.lin$BestModelData)
-plotbest(diag.mean.quad$Dataset, diag.mean.quad$BestModel, diag.mean.quad$BestModelData)
-plotbest(diag.slope.lin$Dataset, diag.slope.lin$BestModel, diag.slope.lin$BestModelData)
-plotbest(diag.slope.quad$Dataset, diag.slope.quad$BestModel, diag.slope.quad$BestModelData)
-plotbest(diag.precip.mean.lin$Dataset, diag.precip.mean.lin$BestModel, diag.precip.mean.lin$BestModelData)
-plotbest(diag.precip.mean.quad$Dataset, diag.precip.mean.quad$BestModel, diag.precip.mean.quad$BestModelData)
-
-diag.mean.lin
-diag.mean.quad
-diag.slope.lin
-diag.slope.quad
-diag.precip.mean.lin
-diag.precip.mean.quad
+#For supplemental diagram, just fit a window 20-40 days post spawning
+#Just for figure making, not used
+# diag.mean.lin <- singlewin(xvar=list(GDD0=xvar$GDD0),
+#                       cdate=xvar$Date,
+#                       bdate=rec.dat$SpawnDate,
+#                       baseline=r.baseline,
+#                       type="relative",
+#                       stat=c("mean"),
+#                       func=c("lin"),
+#                       range=c(40, 20),
+#                       cinterval="day",
+#                       cmissing="method1")
+# 
+# diag.mean.quad <- singlewin(xvar=list(GDD0=xvar$GDD0),
+#                            cdate=xvar$Date,
+#                            bdate=rec.dat$SpawnDate,
+#                            baseline=r.baseline,
+#                            type="relative",
+#                            stat=c("mean"),
+#                            func=c("quad"),
+#                            range=c(40, 20),
+#                            cinterval="day",
+#                            cmissing="method1")
+# 
+# diag.slope.lin <- singlewin(xvar=list(GDD0=xvar$GDD0),
+#                            cdate=xvar$Date,
+#                            bdate=rec.dat$SpawnDate,
+#                            baseline=r.baseline,
+#                            type="relative",
+#                            stat=c("slope"),
+#                            func=c("lin"),
+#                            range=c(40, 20),
+#                            cinterval="day",
+#                            cmissing="method1")
+# 
+# diag.slope.quad <- singlewin(xvar=list(GDD0=xvar$GDD0),
+#                            cdate=xvar$Date,
+#                            bdate=rec.dat$SpawnDate,
+#                            baseline=r.baseline,
+#                            type="relative",
+#                            stat=c("slope"),
+#                            func=c("quad"),
+#                            range=c(40, 20),
+#                            cinterval="day",
+#                            cmissing="method1")
+# 
+# diag.precip.mean.lin <- singlewin(xvar=list(Precip=xvar$meanPrecip),
+#                            cdate=xvar$Date,
+#                            bdate=rec.dat$SpawnDate,
+#                            baseline=r.baseline,
+#                            type="relative",
+#                            stat=c("mean"),
+#                            func=c("lin"),
+#                            range=c(40, 20),
+#                            cinterval="day",
+#                            cmissing="method1")
+# 
+# 
+# diag.precip.mean.quad <- singlewin(xvar=list(Precip=xvar$meanPrecip),
+#                             cdate=xvar$Date,
+#                             bdate=rec.dat$SpawnDate,
+#                             baseline=r.baseline,
+#                             type="relative",
+#                             stat=c("mean"),
+#                             func=c("quad"),
+#                             range=c(40, 20),
+#                             cinterval="day",
+#                             cmissing="method1")
+# 
+# 
+# 
+# plotbest(diag.mean.lin$Dataset, diag.mean.lin$BestModel, diag.mean.lin$BestModelData)
+# plotbest(diag.mean.quad$Dataset, diag.mean.quad$BestModel, diag.mean.quad$BestModelData)
+# plotbest(diag.slope.lin$Dataset, diag.slope.lin$BestModel, diag.slope.lin$BestModelData)
+# plotbest(diag.slope.quad$Dataset, diag.slope.quad$BestModel, diag.slope.quad$BestModelData)
+# plotbest(diag.precip.mean.lin$Dataset, diag.precip.mean.lin$BestModel, diag.precip.mean.lin$BestModelData)
+# plotbest(diag.precip.mean.quad$Dataset, diag.precip.mean.quad$BestModel, diag.precip.mean.quad$BestModelData)
+# 
+# diag.mean.lin
+# diag.mean.quad
+# diag.slope.lin
+# diag.slope.quad
+# diag.precip.mean.lin
+# diag.precip.mean.quad
 
 b <- Sys.time() - a
 

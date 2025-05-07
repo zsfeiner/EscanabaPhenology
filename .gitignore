@@ -5,7 +5,7 @@
 # Data files (for now, can add back on publication)
 # *.csv
 # *.txt
-*.png
+*.png #Figure files
 
 # Manuscript files
 Manuscript/
